@@ -131,6 +131,33 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec(
         "nlp_sim_noexcuse", "fundamental", "nlp_text", "Prior run: MiniLM sim to 'no excuse'."
     ),
+    # --- pace / sectional residuals (w456 research, LAGGED = prior runs only) ---- #
+    FeatureSpec(
+        "late_rel3", "fundamental", "pace_sectional", "Prior runs: closing-speed residual (s)."
+    ),
+    FeatureSpec(
+        "pace_close3", "fundamental", "pace_sectional", "Prior runs: pace-weighted closing figure."
+    ),
+    FeatureSpec(
+        "led_held3", "fundamental", "pace_sectional", "Prior runs: led and held under fast pace."
+    ),
+    FeatureSpec(
+        "hidden_hp3", "fundamental", "pace_sectional", "Prior runs: hidden fast finish count."
+    ),
+    # --- body-weight dynamics (declared_weight vs the horse's own history) ------ #
+    FeatureSpec("bw_chg", "fundamental", "weight_dynamics", "Declared weight minus prior run's."),
+    FeatureSpec(
+        "bw_vs_avg", "fundamental", "weight_dynamics", "Declared weight minus prior-run mean."
+    ),
+    FeatureSpec(
+        "bw_up_fresh", "fundamental", "weight_dynamics", "1 if >8lb heavier after a >45d break."
+    ),
+    FeatureSpec("bw_drop", "fundamental", "weight_dynamics", "Pounds lost vs prior run (0 if up)."),
+    # --- class-drop deployment (trainer placement) ------------------------------ #
+    FeatureSpec("is_drop", "fundamental", "class_deploy", "1 if dropping in class vs prior run."),
+    FeatureSpec(
+        "drop_x_trsr", "fundamental", "class_deploy", "is_drop x trainer as-of class-drop strike."
+    ),
     # --- market wall (closing line) ----------------------------------------- #
     FeatureSpec("market_prob", "market", "market", "Overround-adjusted SP-implied win prob."),
     FeatureSpec("win_odds", "market", "market", "Starting price (closing line; market data)."),
@@ -201,9 +228,51 @@ NLP_FEATURES: tuple[str, ...] = (
 )
 
 
-def numeric_design_features(include_nlp: bool = False) -> tuple[str, ...]:
-    """The numeric design columns, optionally with the lagged NLP group appended (M4 ablation)."""
-    return (*BASELINE_FEATURES, *NLP_FEATURES) if include_nlp else BASELINE_FEATURES
+# The 13-factor residual block (reports/w456.py, wired in post-M7). Three ablatable groups of
+# signals the market may under-price; kept out of BASELINE_FEATURES so the ablation can measure
+# their marginal effect. Three of the original 13 factors are *already* in the baseline under
+# the store's own names: draw_pct = draw_rel, avg_fin_l3 = avg_finish_last3, j_winr =
+# jockey_win_rate -- so only the 10 genuinely new ones are declared here.
+PACE_FEATURES: tuple[str, ...] = (
+    "late_rel3",
+    "pace_close3",
+    "led_held3",
+    "hidden_hp3",
+)
+
+WEIGHT_DYN_FEATURES: tuple[str, ...] = (
+    "bw_chg",
+    "bw_vs_avg",
+    "bw_up_fresh",
+    "bw_drop",
+)
+
+CLASS_DEPLOY_FEATURES: tuple[str, ...] = (
+    "is_drop",
+    "drop_x_trsr",
+)
+
+RESIDUAL_FEATURES: tuple[str, ...] = (
+    *PACE_FEATURES,
+    *WEIGHT_DYN_FEATURES,
+    *CLASS_DEPLOY_FEATURES,
+)
+
+
+def numeric_design_features(
+    include_nlp: bool = False, include_residual: bool = False
+) -> tuple[str, ...]:
+    """The numeric design columns, with the ablatable groups optionally appended.
+
+    ``include_nlp`` adds the lagged NLP block (M4); ``include_residual`` adds the pace /
+    weight-dynamics / class-deploy block (the 13-factor study).
+    """
+    cols = BASELINE_FEATURES
+    if include_nlp:
+        cols = (*cols, *NLP_FEATURES)
+    if include_residual:
+        cols = (*cols, *RESIDUAL_FEATURES)
+    return cols
 
 
 # The canary rides alongside the real features through fit + backtest; it must score ~0.

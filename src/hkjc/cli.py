@@ -332,12 +332,21 @@ def backtest(
     ] = None,
     seed: Annotated[int, typer.Option(help="Bootstrap RNG seed.")] = 0,
     no_plot: Annotated[bool, typer.Option("--no-plot", help="Skip the calibration PNG.")] = False,
+    residual: Annotated[
+        bool,
+        typer.Option("--residual", help="Add the pace/weight/class-drop group (13-factor)."),
+    ] = False,
 ) -> None:
     """Run an honest, time-ordered walk-forward backtest of the baseline (M2)."""
     from hkjc.backtest.engine import run_backtest
 
     res = run_backtest(
-        l2=l2, market_weight=market_weight, ev_threshold=ev, seed=seed, make_plot=not no_plot
+        l2=l2,
+        market_weight=market_weight,
+        ev_threshold=ev,
+        seed=seed,
+        make_plot=not no_plot,
+        include_residual=residual,
     )
     typer.echo(
         f"Walk-forward OOS: {res.n_oos_races} races, {res.n_oos_runners} runners "
@@ -408,6 +417,7 @@ def tune(
 
 @app.command()
 def ablate(
+    group: Annotated[str, typer.Option(help="Feature group to ablate: nlp or residual.")] = "nlp",
     seasons: Annotated[
         int | None, typer.Option(help="Only the most recent N test seasons (default: all).")
     ] = None,
@@ -415,11 +425,19 @@ def ablate(
     ev: Annotated[float | None, typer.Option(help="EV edge threshold for the blend.")] = None,
     seed: Annotated[int, typer.Option(help="RNG seed.")] = 0,
 ) -> None:
-    """Ablate the NLP feature group: walk-forward logit with vs without it (M4 exit criterion)."""
+    """Ablate a feature group: walk-forward logit with vs without it (M4 exit criterion).
+
+    ``--group nlp`` measures the lagged comment signals; ``--group residual`` the pace /
+    weight-dynamics / class-deploy block (the 13-factor study).
+    """
     from hkjc.experiments.ablation import format_ablation, run_ablation
 
     res = run_ablation(
-        market_weight=market_weight, ev_threshold=ev, max_test_seasons=seasons, seed=seed
+        group=group,
+        market_weight=market_weight,
+        ev_threshold=ev,
+        max_test_seasons=seasons,
+        seed=seed,
     )
     typer.echo(format_ablation(res))
 
@@ -474,11 +492,16 @@ def train_production(
     model: Annotated[
         str, typer.Option(help="Model to persist (logit, catboost, ensemble, ...).")
     ] = "logit",
+    nlp: Annotated[bool, typer.Option("--nlp", help="Include the lagged NLP group.")] = False,
+    residual: Annotated[
+        bool,
+        typer.Option("--residual", help="Include the pace/weight/class-drop group (13-factor)."),
+    ] = False,
 ) -> None:
     """Fit a model on all history and persist it for race-day inference (M7)."""
     from hkjc.models.persist import train_production_model
 
-    path = train_production_model(model_name=model)
+    path = train_production_model(model_name=model, include_nlp=nlp, include_residual=residual)
     typer.echo(f"Saved production model '{model}' -> {path}")
 
 

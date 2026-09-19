@@ -52,13 +52,16 @@ class Design:
         return self.x[:, self.numeric_indices]
 
 
-def build_design(df: pl.DataFrame, *, include_nlp: bool = False) -> Design:
+def build_design(
+    df: pl.DataFrame, *, include_nlp: bool = False, include_residual: bool = False
+) -> Design:
     """Build the combined numeric + integer-encoded categorical design matrix.
 
-    ``include_nlp`` appends the lagged NLP group to the numeric block (M4 ablation); off by
-    default so the M3 leaderboard is unaffected.
+    ``include_nlp`` appends the lagged NLP group (M4 ablation) and ``include_residual`` the
+    pace / weight-dynamics / class-deploy block (the 13-factor study) to the numeric block;
+    both off by default so the M3 leaderboard is unaffected.
     """
-    numeric_cols = numeric_design_features(include_nlp)
+    numeric_cols = numeric_design_features(include_nlp, include_residual)
     numeric = df.select(numeric_cols).to_numpy().astype(np.float64)
     cat_cols: list[FloatArray] = []
     for col in CATEGORICAL_FEATURES:

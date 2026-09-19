@@ -163,7 +163,11 @@ def run_raceday(
 def _predict(
     feats: pl.DataFrame, prod: ProductionModel, cfg: AppConfig
 ) -> tuple[FloatArray, FloatArray, np.typing.NDArray[np.int64]]:
-    design = build_design(feats)
+    design = build_design(
+        feats,
+        include_nlp=getattr(prod, "include_nlp", False),
+        include_residual=getattr(prod, "include_residual", False),
+    )
     x = design.numeric() if prod.design == "numeric" else design.x
     race_no = feats["race_no"].to_numpy().astype(np.int64)
     codes, ng = group_codes(race_no)

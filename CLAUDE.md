@@ -459,6 +459,50 @@ which already serves a card + flowing odds) and a live simulcast.
   ST card + already-flowing odds validate the whole path today. Offline fixture tests (captured
   B1/B2 JSON in `fixtures/hkjc/`) keep CI green with no network.
 
+## 13-factor residual group (post-M7) -- wired into the pipeline
+
+The standalone study in `reports/w456.py` (13 factors -> one conditional logit, market as a
+control) is now a **first-class, ablatable feature group** instead of a one-off script. Three of
+its 13 factors already existed in the store under other names (`draw_pct`=`draw_rel`,
+`avg_fin_l3`=`avg_finish_last3`, `j_winr`=`jockey_win_rate`), so 10 new columns were added, in
+three config groups:
+
+- `pace_sectional` (`_add_pace` + `_pace_metrics`, from the sectional archive #7):
+  `late_rel3` / `pace_close3` / `led_held3` / `hidden_hp3`. Race-level **early-pace pressure** =
+  the leader's first-section time z-scored within (distance, n-sections); `late_rel` = last
+  section vs field median; `pace_close` amplifies closing done into a hot pace. **Lagged like the
+  NLP group** (a sectional describes the run it belongs to) -- joined per run, then shifted one
+  run and rolled over the horse's last 4 runs (mean for the figures, sum for the flags).
+- `weight_dynamics` (`_add_weight_dynamics`): `bw_chg` / `bw_vs_avg` / `bw_up_fresh` / `bw_drop`
+  from `declared_weight` (body weight, published pre-race -> the current value is legal; only the
+  baselines are prior). `bw_up_fresh` = >8lb heavier **and** >45 days off.
+- `class_deploy` (`_add_class_drop`): `is_drop` (this race's class vs the horse's previous, via
+  `_class_ord`: Group 0.5 / Class N / Griffin 4.5) x `drop_x_trsr`, the trainer's as-of strike
+  rate **on their earlier class-drop runners only**, keyed by the canonical connection id (not
+  the raw name as in w456).
+
+`feature_version` -> **v3** (rebuild required). The group is kept out of `BASELINE_FEATURES`;
+`numeric_design_features(include_nlp, include_residual)` -> `build_design` -> `load_model_data`
+carry the toggle, `train_production_model(--residual)` records it on the artifact so race-day
+rebuilds a matching design, and the M4 ablation harness is now group-generic:
+`hkjc ablate --group residual|nlp`, plus `hkjc backtest --residual` (so the canary rides through
+the augmented fit).
+
+**Verification (this data copy: 182,509 runner-rows, 2008-04..2026-07; no weather / holiday /
+comments tables stored here, so those columns are null in both arms):**
+- **Betas reproduce the study.** Refitting w456's exact model on the *pipeline* columns over the
+  same window (12,167 races from 2011-09) gives market a=+1.109 (t=69) and `late_rel3` **+0.152
+  (t=+3.5)** vs the script's +0.145 (t=+3.2); every sign, magnitude and significance matches
+  (`pace_close3` -0.161, `bw_up_fresh` +0.034, `draw_rel` +0.024, `jockey_win_rate` **-0.028,
+  t=-3.0** = the market over-backs in-form jockeys). Residual deltas come from the canonical
+  trainer key + the spine-based rolling window.
+- **Canary stays clean:** coef ratio 0.050 baseline -> **0.054** with the group (sentinel ROI
+  -19.7% either way), i.e. the new columns carry no leakage.
+- **Ablation (logit, 14,434 OOS races):** log-loss 2.2485 -> **2.2460** (-0.0025), top-1
+  0.2383 -> 0.2398, model-only WIN ROI -16.30% -> **-16.14%** (+0.15pp), market-blend WIN ROI
+  -32.81% -> **-30.96%** (+1.85pp). A real but **small** improvement -- the same verdict as the
+  NLP group: **still no edge past the takeout** (PLAN §1F holds).
+
 ## Next: post-M7 (all milestones done)
 
 M0-M7 are implementation-complete. Open follow-ups (user's call): backfill **sectionals** (now

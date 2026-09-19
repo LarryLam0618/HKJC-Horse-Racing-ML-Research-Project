@@ -2,9 +2,11 @@
 # `market` features are kept behind a hard wall from fundamental features (PLAN.md §1B);
 # `nlp_text` is strictly lagged (prior runs only, PLAN.md §1C) and ablatable (M4).
 features:
-  feature_version: v2           # bump when feature builders change (reproducibility)
+  feature_version: v3           # bump when feature builders change (reproducibility)
                                 # v1 (M3): layered debut-age heuristic for age_at_race
                                 # v2 (M4): lagged nlp_text group (comments-on-running)
+                                # v3: pace_sectional + weight_dynamics + class_deploy
+                                #     (the 13-factor study, reports/w456.py)
 
   groups:
     form:           { enabled: true }
@@ -24,6 +26,9 @@ features:
     vet_flags:      { enabled: false }  # source #6 dropped 2026-06-15 (forward-only)
     public_holiday: { enabled: true }   # (#14)
     nlp_text:       { enabled: true, ablatable: true }   # M4, lagged
+    pace_sectional: { enabled: true, ablatable: true }   # (#7) sectional closing figures, lagged
+    weight_dynamics: { enabled: true, ablatable: true }  # declared-weight vs the horse's history
+    class_deploy:   { enabled: true, ablatable: true }   # class drop x trainer as-of strike
     market:         { enabled: true, wall: true }        # walled off from fundamentals
 
   # Horse bio — full set (locked). age_at_race is derived from age + racing season.

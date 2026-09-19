@@ -37,6 +37,8 @@ class ProductionModel:
     feature_version: str
     n_train: int
     trained_at: str
+    include_nlp: bool = False
+    include_residual: bool = False
 
 
 def _model_path(cfg: AppConfig, model_name: str) -> Path:
@@ -44,15 +46,24 @@ def _model_path(cfg: AppConfig, model_name: str) -> Path:
 
 
 def train_production_model(
-    cfg: AppConfig | None = None, *, model_name: str = "logit", nn_epochs: int = 120
+    cfg: AppConfig | None = None,
+    *,
+    model_name: str = "logit",
+    nn_epochs: int = 120,
+    include_nlp: bool = False,
+    include_residual: bool = False,
 ) -> Path:
-    """Fit ``model_name`` on the whole feature store and persist it for race-day inference."""
+    """Fit ``model_name`` on the whole feature store and persist it for race-day inference.
+
+    The ablatable groups are recorded on the artifact so race-day rebuilds an identical design
+    (a mismatch would silently score the card on the wrong columns).
+    """
     cfg = cfg or get_config()
     specs = default_models(nn_epochs=nn_epochs)
     if model_name not in specs:
         msg = f"unknown model {model_name!r}; expected one of {sorted(specs)}"
         raise ValueError(msg)
-    data = load_model_data(cfg)
+    data = load_model_data(cfg, include_nlp=include_nlp, include_residual=include_residual)
     factory, design = specs[model_name]
     model = factory(data)
     x = data.numeric() if design == "numeric" else data.x_full
@@ -68,6 +79,8 @@ def train_production_model(
         feature_version=cfg.features.feature_version,
         n_train=int(data.y.size),
         trained_at=now_hkt().isoformat(),
+        include_nlp=include_nlp,
+        include_residual=include_residual,
     )
     path = _model_path(cfg, model_name)
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -26,7 +26,7 @@ import polars as pl
 from hkjc.common.config import AppConfig, get_config
 from hkjc.data.store.writer import season_label
 from hkjc.features import store
-from hkjc.features.base import FEATURE_SPECS, NLP_FEATURES
+from hkjc.features.base import FEATURE_SPECS, NLP_FEATURES, PACE_FEATURES
 
 # Lengths-behind-winner word tokens -> approximate lengths.
 _LBW_WORDS: dict[str, float] = {
@@ -430,6 +430,213 @@ def _add_nlp(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
     )
 
 
+_SECTIONAL_COLS = [
+    "race_date",
+    "venue",
+    "race_no",
+    "saddle",
+    "finishing_order",
+    "section_index",
+    "running_position",
+    "section_time_s",
+]
+_PACE_WINDOW = 4  # prior runs averaged into the *3 aggregates (as in reports/w456.py)
+
+
+def _pace_metrics(cfg: AppConfig) -> pl.DataFrame:
+    """Per-run pace / closing metrics from the sectional archive (#7; starts 2008-04-02).
+
+    Everything here describes the run it belongs to (post-race), so it is *never* used raw --
+    :func:`_add_pace` lags it one run per horse before it reaches the model.
+
+    * ``pace_press`` -- how fast the race's leader went early, z-scored within
+      (distance, number of sections); +ve = a hot early pace.
+    * ``late_rel``   -- the runner's last-section time vs the field median (+ve = finished faster).
+    * ``pace_close`` -- ``late_rel`` amplified when the pace was hot (closing into a fast pace is
+      worth more than closing into a crawl).
+    * ``led_held_hp``/``hidden_hp`` -- flags for a front-runner that withstood a fast pace, and
+      for a fast finish hidden behind a bad placing in a truly-run race.
+    """
+    sec = _read_raw(cfg, "sectionals", columns=_SECTIONAL_COLS)
+    if sec.is_empty():
+        return pl.DataFrame()
+    keys = ["race_date", "venue", "race_no", "saddle"]
+    race_keys = ["race_date", "venue", "race_no"]
+    sec = sec.drop_nulls(["section_index", "section_time_s"])
+    if sec.is_empty():
+        return pl.DataFrame()
+    sec = sec.with_columns(nsec=pl.col("section_index").max().over(keys))
+    last = (
+        sec.filter(pl.col("section_index") == pl.col("nsec"))
+        .select(*keys, "nsec", "finishing_order", pl.col("section_time_s").alias("last400"))
+        .unique(subset=keys, keep="first")
+    )
+    first = (
+        sec.filter(pl.col("section_index") == 1)
+        .select(
+            *keys,
+            pl.col("section_time_s").alias("sec1"),
+            pl.col("running_position").alias("early_pos"),
+        )
+        .unique(subset=keys, keep="first")
+    )
+    races = _read_raw(cfg, "races", columns=[*race_keys, "distance_m"]).unique(
+        subset=race_keys, keep="first"
+    )
+    run = last.join(first, on=keys, how="left")
+    if not races.is_empty():
+        run = run.join(races, on=race_keys, how="left")
+    else:
+        run = run.with_columns(pl.lit(None, dtype=pl.Int64).alias("distance_m"))
+
+    # Early-pace pressure is a *race* property: the leader's first-section time, z-scored
+    # within comparable races (same distance and same number of timed sections).
+    lead = pl.col("sec1").min().over(race_keys)
+    run = run.with_columns(_lead_sec1=lead)
+    norm = ["distance_m", "nsec"]
+    run = run.with_columns(
+        pace_press=-(
+            (pl.col("_lead_sec1") - pl.col("_lead_sec1").mean().over(norm))
+            / pl.col("_lead_sec1").std().over(norm)
+        )
+    )
+    run = run.with_columns(late_rel=pl.col("last400").median().over(race_keys) - pl.col("last400"))
+    run = run.with_columns(
+        pace_close=pl.col("late_rel") * (1.0 + pl.col("pace_press").clip(0.0, 2.5)),
+        led_held_hp=(
+            (pl.col("early_pos") <= 3)
+            & (pl.col("finishing_order") <= 3)
+            & (pl.col("pace_press") > 0.4)
+        )
+        .fill_null(value=False)
+        .cast(pl.Float64),
+        hidden_hp=(
+            (pl.col("finishing_order") >= 6)
+            & (pl.col("late_rel") >= 0.35)
+            & (pl.col("pace_press") > 0.0)
+        )
+        .fill_null(value=False)
+        .cast(pl.Float64),
+    )
+    return run.select(*keys, "late_rel", "pace_close", "led_held_hp", "hidden_hp")
+
+
+def _add_pace(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
+    """Join the per-run pace metrics and **lag** them (prior runs only, like the NLP group).
+
+    A sectional describes the run it belongs to, so each aggregate is shifted one run forward
+    per horse: the value seen for a target race summarises the horse's previous runs. Runs with
+    no sectional row (pre-2008-04, or a missing page) simply contribute nothing to the window.
+    """
+    keys = ["race_date", "venue", "race_no", "saddle"]
+    metrics = _pace_metrics(cfg)
+    if metrics.is_empty():
+        return runs.with_columns(*[pl.lit(None, dtype=pl.Float64).alias(c) for c in PACE_FEATURES])
+    runs = runs.join(metrics, on=keys, how="left").sort(["horse_id", "race_date", "race_no"])
+    g = "horse_id"
+    w = _PACE_WINDOW
+    runs = runs.with_columns(
+        late_rel3=pl.col("late_rel").shift(1).rolling_mean(window_size=w, min_samples=1).over(g),
+        pace_close3=pl.col("pace_close")
+        .shift(1)
+        .rolling_mean(window_size=w, min_samples=1)
+        .over(g),
+        led_held3=pl.col("led_held_hp").shift(1).rolling_sum(window_size=w, min_samples=1).over(g),
+        hidden_hp3=pl.col("hidden_hp").shift(1).rolling_sum(window_size=w, min_samples=1).over(g),
+    )
+    return runs.drop("late_rel", "pace_close", "led_held_hp", "hidden_hp")
+
+
+def _add_weight_dynamics(runs: pl.DataFrame) -> pl.DataFrame:
+    """Body-weight dynamics vs the horse's own prior runs (strictly prior; declared weight).
+
+    ``declared_weight`` is the horse's body weight in lbs, published pre-race, so the *current*
+    value is legal; only the comparison baselines come from earlier runs. ``bw_up_fresh`` is the
+    combination the study found to matter -- returning heavier *and* off a real break.
+    """
+    g = "horse_id"
+    runs = runs.sort([g, "race_date", "race_no"])
+    bw = pl.col("declared_weight").cast(pl.Float64)
+    runs = runs.with_columns(
+        _bw=bw,
+        _bw_prev=bw.shift(1).over(g),
+        _bw_sum_prior=bw.fill_null(0.0).shift(1).cum_sum().over(g),
+        _bw_n_prior=bw.is_not_null().cast(pl.Int64).shift(1).cum_sum().over(g),
+    )
+    runs = runs.with_columns(bw_chg=pl.col("_bw") - pl.col("_bw_prev"))
+    runs = runs.with_columns(
+        bw_vs_avg=pl.when(pl.col("_bw_n_prior") > 0)
+        .then(pl.col("_bw") - pl.col("_bw_sum_prior") / pl.col("_bw_n_prior"))
+        .otherwise(None),
+        bw_up_fresh=((pl.col("bw_chg") > 8) & (pl.col("days_since_last_run") > 45))
+        .fill_null(value=False)
+        .cast(pl.Float64),
+        bw_drop=(-pl.col("bw_chg")).clip(lower_bound=0.0),
+    )
+    return runs.drop("_bw", "_bw_prev", "_bw_sum_prior", "_bw_n_prior")
+
+
+def _class_ord(race_class: pl.Expr) -> pl.Expr:
+    """Class token -> ordinal (lower = better company): Group 0.5, Class N -> N, Griffin 4.5."""
+    numbered = race_class.str.extract(r"^Class\s+(\d)", 1).cast(pl.Float64)
+    return (
+        pl.when(numbered.is_not_null())
+        .then(numbered)
+        .when(race_class.str.contains("Group"))
+        .then(pl.lit(0.5))
+        .when(race_class.str.contains("Griffin"))
+        .then(pl.lit(4.5))
+        .otherwise(pl.lit(3.0))
+    )
+
+
+def _add_class_drop(runs: pl.DataFrame) -> pl.DataFrame:
+    """Class-drop flag + the trainer's as-of strike rate *on class-drop runners*.
+
+    Both sides are strictly prior: the drop compares this race's class with the horse's previous
+    race, and the trainer rate is a running career-to-date figure over their earlier class-drop
+    runners only (keyed by the canonical connection id, so a long career is not split at the
+    name/code era boundary).
+    """
+    g = "horse_id"
+    runs = runs.sort([g, "race_date", "race_no"]).with_columns(
+        _class_ord=_class_ord(pl.col("race_class"))
+    )
+    runs = runs.with_columns(_prev_class=pl.col("_class_ord").shift(1).over(g))
+    runs = runs.with_columns(
+        is_drop=((pl.col("_class_ord") - pl.col("_prev_class")) > 0)
+        .fill_null(value=False)
+        .cast(pl.Int64)
+    )
+    keyed = _canonical_connection_key(
+        runs.select(
+            "_row", "trainer_name", "trainer_code", "race_date", "race_no", "won", "is_drop"
+        ),
+        "trainer_name",
+        "trainer_code",
+    )
+    drops = keyed.filter((pl.col("is_drop") == 1) & pl.col("_key").is_not_null())
+    if drops.is_empty():
+        runs = runs.with_columns(pl.lit(0.0, dtype=pl.Float64).alias("_tr_drop_sr"))
+    else:
+        drops = drops.sort(["_key", "race_date", "race_no"]).with_columns(
+            _n_prior=pl.col("race_date").cum_count().over("_key") - 1,
+            _w_prior=pl.col("won").cum_sum().over("_key") - pl.col("won"),
+        )
+        drops = drops.with_columns(
+            _tr_drop_sr=pl.when(pl.col("_n_prior") > 0)
+            .then(pl.col("_w_prior") / pl.col("_n_prior"))
+            .otherwise(0.0)
+        ).select("_row", "_tr_drop_sr")
+        runs = runs.join(drops, on="_row", how="left").with_columns(
+            pl.col("_tr_drop_sr").fill_null(0.0)
+        )
+    runs = runs.with_columns(
+        drop_x_trsr=(pl.col("is_drop").cast(pl.Float64) * pl.col("_tr_drop_sr"))
+    )
+    return runs.drop("_class_ord", "_prev_class", "_tr_drop_sr")
+
+
 def _compute_features(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
     """The as-of feature pipeline (shared by the historical build + the M7 forward card)."""
     runs = runs.with_row_index("_row")
@@ -441,6 +648,9 @@ def _compute_features(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
     runs = _add_bio(runs, cfg)
     runs = _add_context(runs, cfg)
     runs = _add_nlp(runs, cfg)
+    runs = _add_pace(runs, cfg)
+    runs = _add_weight_dynamics(runs)
+    runs = _add_class_drop(runs)
     return runs
 
 
