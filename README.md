@@ -63,11 +63,20 @@ the upstream README.
   `draw_rel` itself only t = 2.4). Walk-forward EV-gated betting finds ~200 bets in 14 seasons
   with a CI spanning −39% to +23%. Not wired into the pipeline — three t < 1 columns would only
   add noise. Third honest null after NLP and the residual group.
-- **Barrier-trial backfill** (`hkjc scrape-trials --since`): the `btresult` landing page only
-  lists ~one season, but HKJC still serves per-date trial pages back to the 2010-11 season, so
-  `--since` earlier than the listed span now enumerates the gap day by day (trials move around
-  holidays) and records empty days in the manifest without writing files. Groundwork for a
-  `trial_signal` feature group on ~15 seasons instead of one.
+- **Barrier-trial backfill + `trial_signal` feature group** (the strongest of the four
+  studies so far). The `btresult` landing page only lists ~one season, but HKJC still serves
+  per-date trial pages back to 2010-11, so `hkjc scrape-trials --since` now enumerates the gap
+  day by day: **8,022 → 83,903 trial rows, 1 → 16 seasons**. `reports/trial_signal.py` then
+  asks what a horse *did* in its trials since its last race, with the market **and the layoff**
+  as controls (trials cluster around spells). Two factors survive: `bt_n_between` (trials
+  between races, **t = 3.8**) and `bt_easy_win` (won a trial "easily", **t = −2.6** — the
+  market over-backs it). Wired in as an ablatable 6-column group (`src/hkjc/features/build.py::
+  _add_trial_signal`, strictly prior via `join_asof(allow_exact_matches=False)`, tests pin
+  the as-of rules). **Ablation on 14,434 OOS races:** log-loss 2.2465 → **2.2377 (−0.0089)**,
+  ~7× the NLP group's gain and 20× the residual group's; top-1 +0.0012; market-blend WIN ROI
+  −32.9% → −30.7%; canary clean (0.051). Yet model-only WIN ROI −17.0% → −18.0%: better
+  probabilities, still **no edge past the takeout**. The backfill also moved the *baseline*
+  (its `had_recent_trial` went from one season to sixteen): 2.2485 → 2.2465.
 - **Research scripts** (`research/`, `reports/`): the exploration behind the residual group —
   WIN / PLACE / quinella backtests (Harville, EV-ratio, expanding calibration), LightGBM
   ablations and regularisation sweeps, calibration checks, data-quality diagnostics. Kept for

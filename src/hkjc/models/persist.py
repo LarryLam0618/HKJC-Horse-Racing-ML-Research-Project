@@ -39,6 +39,7 @@ class ProductionModel:
     trained_at: str
     include_nlp: bool = False
     include_residual: bool = False
+    include_trials: bool = False
 
 
 def _model_path(cfg: AppConfig, model_name: str) -> Path:
@@ -52,6 +53,7 @@ def train_production_model(
     nn_epochs: int = 120,
     include_nlp: bool = False,
     include_residual: bool = False,
+    include_trials: bool = False,
 ) -> Path:
     """Fit ``model_name`` on the whole feature store and persist it for race-day inference.
 
@@ -63,7 +65,12 @@ def train_production_model(
     if model_name not in specs:
         msg = f"unknown model {model_name!r}; expected one of {sorted(specs)}"
         raise ValueError(msg)
-    data = load_model_data(cfg, include_nlp=include_nlp, include_residual=include_residual)
+    data = load_model_data(
+        cfg,
+        include_nlp=include_nlp,
+        include_residual=include_residual,
+        include_trials=include_trials,
+    )
     factory, design = specs[model_name]
     model = factory(data)
     x = data.numeric() if design == "numeric" else data.x_full
@@ -81,6 +88,7 @@ def train_production_model(
         trained_at=now_hkt().isoformat(),
         include_nlp=include_nlp,
         include_residual=include_residual,
+        include_trials=include_trials,
     )
     path = _model_path(cfg, model_name)
     path.parent.mkdir(parents=True, exist_ok=True)

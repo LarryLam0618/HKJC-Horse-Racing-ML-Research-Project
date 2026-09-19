@@ -1,0 +1,84 @@
+{
+ "seasons": [
+  2012,
+  2026
+ ],
+ "market_a": 1.059,
+ "market_t": 90.9,
+ "factors": [
+  {
+   "factor": "layoff",
+   "beta": -0.062,
+   "t": -2.8
+  },
+  {
+   "factor": "bt_days_since",
+   "beta": 0.014,
+   "t": 1.1
+  },
+  {
+   "factor": "bt_margin_last",
+   "beta": -0.017,
+   "t": -1.0
+  },
+  {
+   "factor": "bt_rank_last",
+   "beta": -0.026,
+   "t": -1.6
+  },
+  {
+   "factor": "bt_n_between",
+   "beta": 0.073,
+   "t": 3.8
+  },
+  {
+   "factor": "bt_failed_between",
+   "beta": -0.01,
+   "t": -0.5
+  },
+  {
+   "factor": "bt_easy_win",
+   "beta": -0.031,
+   "t": -2.6
+  },
+  {
+   "factor": "bt_first_up_trial",
+   "beta": 0.024,
+   "t": 1.4
+  }
+ ],
+ "walk_forward": {
+  "ev>=0.00": {
+   "bets": 944,
+   "roi": -0.016,
+   "ci": [
+    -0.2173,
+    0.2166
+   ]
+  },
+  "ev>=0.05": {
+   "bets": 423,
+   "roi": -0.0296,
+   "ci": [
+    -0.3022,
+    0.2856
+   ]
+  },
+  "ev>=0.10": {
+   "bets": 224,
+   "roi": -0.0049,
+   "ci": [
+    -0.3483,
+    0.3861
+   ]
+  },
+  "ev>=0.20": {
+   "bets": 110,
+   "roi": 0.17,
+   "ci": [
+    -0.235,
+    0.7238
+   ]
+  }
+ }
+}

@@ -115,7 +115,9 @@ def _dividend_lookup(cfg: AppConfig, pool: str) -> pl.DataFrame:
     )
 
 
-def _load_arrays(cfg: AppConfig, *, include_residual: bool = False) -> _Arrays:
+def _load_arrays(
+    cfg: AppConfig, *, include_residual: bool = False, include_trials: bool = False
+) -> _Arrays:
     df = store.load_features(cfg)
     key = pl.concat_str(
         [pl.col("race_date").cast(pl.String), pl.col("venue"), pl.col("race_no").cast(pl.String)],
@@ -131,7 +133,11 @@ def _load_arrays(cfg: AppConfig, *, include_residual: bool = False) -> _Arrays:
     )
 
     feat = (
-        df.select(numeric_design_features(include_residual=include_residual))
+        df.select(
+            numeric_design_features(
+                include_residual=include_residual, include_trials=include_trials
+            )
+        )
         .to_numpy()
         .astype(np.float64)
     )
@@ -218,10 +224,11 @@ def walk_forward_oos(
     l2: float = 1.0,
     min_train_seasons: int = 1,
     include_residual: bool = False,
+    include_trials: bool = False,
 ) -> WalkForwardOOS:
     """Fit the PL-logit season-by-season (expanding window) and collect OOS WIN/PLACE probs."""
     cfg = cfg or get_config()
-    a = _load_arrays(cfg, include_residual=include_residual)
+    a = _load_arrays(cfg, include_residual=include_residual, include_trials=include_trials)
 
     oos_idx: list[IntArray] = []
     wp_parts: list[FloatArray] = []
@@ -265,11 +272,13 @@ def run_backtest(
     seed: int = 0,
     make_plot: bool = True,
     include_residual: bool = False,
+    include_trials: bool = False,
 ) -> BacktestResult:
     """Run the honest walk-forward backtest and return the result summary.
 
     ``include_residual`` adds the pace / weight-dynamics / class-deploy block (the 13-factor
-    study) to the baseline design -- the canary rides through that fit too.
+    study) and ``include_trials`` the barrier-trial block to the baseline design -- the canary
+    rides through those fits too. Tagged runs persist next to, not over, the baseline snapshot.
     """
     cfg = cfg or get_config()
     market_weight = cfg.models.market_blend_weight if market_weight is None else market_weight
@@ -277,8 +286,14 @@ def run_backtest(
     stake = cfg.risk.min_bet if flat_stake is None else flat_stake
 
     wf = walk_forward_oos(
-        cfg, l2=l2, min_train_seasons=min_train_seasons, include_residual=include_residual
+        cfg,
+        l2=l2,
+        min_train_seasons=min_train_seasons,
+        include_residual=include_residual,
+        include_trials=include_trials,
     )
+    groups = [n for n, on in (("residual", include_residual), ("trials", include_trials)) if on]
+    tag: str | None = "_".join(groups) if groups else None
     ocode, ong = group_codes(wf.arrays.race_id[wf.oos])
     result = _evaluate(
         wf.arrays,
@@ -294,9 +309,9 @@ def run_backtest(
         seed=seed,
         make_plot=make_plot,
         cfg=cfg,
-        tag="residual" if include_residual else None,
+        tag=tag,
     )
-    _persist_result_json(cfg, result, wf, tag="residual" if include_residual else None)
+    _persist_result_json(cfg, result, wf, tag=tag)
     return result
 
 

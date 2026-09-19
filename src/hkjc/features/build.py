@@ -26,7 +26,7 @@ import polars as pl
 from hkjc.common.config import AppConfig, get_config
 from hkjc.data.store.writer import season_label
 from hkjc.features import store
-from hkjc.features.base import FEATURE_SPECS, NLP_FEATURES, PACE_FEATURES
+from hkjc.features.base import FEATURE_SPECS, NLP_FEATURES, PACE_FEATURES, TRIAL_FEATURES
 
 # Lengths-behind-winner word tokens -> approximate lengths.
 _LBW_WORDS: dict[str, float] = {
@@ -662,6 +662,101 @@ def _add_class_drop(runs: pl.DataFrame) -> pl.DataFrame:
     return runs.drop("_class_ord", "_prev_class", "_tr_drop_sr")
 
 
+_TRIAL_COLS = ["horse_id", "trial_date", "location", "batch", "time_s", "result", "comment"]
+_TRIAL_CAP_DAYS = 120  # a trial older than this is not "recent" form for the latest-trial block
+_TRIAL_EASY = r"(?i)\b(easily|impressive|comfortabl|strongly|well in hand)"
+
+
+def _trial_runs(cfg: AppConfig) -> pl.DataFrame:
+    """Per-trial run metrics from the barrier-trial archive (#4): batch margin/rank, a Failed /
+    Required-to-... flag and an 'won easily' flag from the steward's comment."""
+    trials = _read_raw(cfg, "barrier_trials", columns=_TRIAL_COLS)
+    if trials.is_empty():
+        return pl.DataFrame()
+    bkey = ["trial_date", "location", "batch"]
+    return (
+        trials.drop_nulls(["horse_id", "trial_date"])
+        .with_columns(
+            _n=pl.len().over(bkey),
+            _rank=pl.col("time_s").rank("min").over(bkey),
+            _best=pl.col("time_s").min().over(bkey),
+        )
+        .with_columns(
+            bt_margin=(pl.col("time_s") - pl.col("_best")).clip(lower_bound=0.0),
+            bt_rank=pl.when(pl.col("_n") > 1)
+            .then((pl.col("_rank") - 1) / (pl.col("_n") - 1))
+            .otherwise(0.0),
+            bt_failed=pl.col("result")
+            .fill_null("")
+            .str.contains("(?i)fail|required")
+            .cast(pl.Float64),
+            bt_easy=(
+                (pl.col("_rank") == 1) & pl.col("comment").fill_null("").str.contains(_TRIAL_EASY)
+            ).cast(pl.Float64),
+        )
+        .select("horse_id", "trial_date", "bt_margin", "bt_rank", "bt_failed", "bt_easy")
+        .sort(["horse_id", "trial_date"])
+    )
+
+
+def _add_trial_signal(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
+    """What the horse did in its barrier trials **before** this race (reports/trial_signal.py).
+
+    Two strictly-prior views of the archive: the *latest* trial within ``_TRIAL_CAP_DAYS``
+    (margin / rank in its batch, 'won easily'), and *all* trials between the horse's previous
+    race and this one (count, any Failed). ``bt_first_up_trial`` flags a >=60-day break that
+    contained a trial -- trials cluster around spells, so the layoff itself must stay a separate
+    feature (``days_since_last_run``) for the trial to be credited on top of it.
+    """
+    tr = _trial_runs(cfg)
+    if tr.is_empty():
+        return runs.with_columns(*[pl.lit(None, dtype=pl.Float64).alias(c) for c in TRIAL_FEATURES])
+    # (a) latest trial strictly before the race.
+    last = (
+        runs.select("_row", "horse_id", "race_date")
+        .sort("race_date")
+        .join_asof(
+            tr.rename({"trial_date": "_last_trial"}).sort("_last_trial"),
+            left_on="race_date",
+            right_on="_last_trial",
+            by="horse_id",
+            strategy="backward",
+            allow_exact_matches=False,  # strictly prior: a race-day trial row is not form
+        )
+        .with_columns(_gap=(pl.col("race_date") - pl.col("_last_trial")).dt.total_days())
+        .with_columns(_ok=pl.col("_gap") <= _TRIAL_CAP_DAYS)
+        .select(
+            "_row",
+            bt_margin_last=pl.when(pl.col("_ok")).then(pl.col("bt_margin")).otherwise(None),
+            bt_rank_last=pl.when(pl.col("_ok")).then(pl.col("bt_rank")).otherwise(None),
+            bt_easy_win=pl.when(pl.col("_ok")).then(pl.col("bt_easy")).otherwise(0.0),
+        )
+    )
+    # (b) every trial between the previous race and this one (<= 1 year back).
+    prev = runs.sort(["horse_id", "race_date", "race_no"]).select(
+        "_row", "horse_id", "race_date", _prev_race=pl.col("race_date").shift(1).over("horse_id")
+    )
+    between = (
+        prev.join(tr.select("horse_id", "trial_date", "bt_failed"), on="horse_id", how="inner")
+        .filter(
+            (pl.col("trial_date") < pl.col("race_date"))
+            & (pl.col("_prev_race").is_null() | (pl.col("trial_date") > pl.col("_prev_race")))
+            & ((pl.col("race_date") - pl.col("trial_date")).dt.total_days() <= 365)
+        )
+        .group_by("_row")
+        .agg(bt_n_between=pl.len().cast(pl.Float64), bt_failed_between=pl.col("bt_failed").max())
+    )
+    runs = runs.join(last, on="_row", how="left").join(between, on="_row", how="left")
+    return runs.with_columns(
+        bt_n_between=pl.col("bt_n_between").fill_null(0.0),
+        bt_failed_between=pl.col("bt_failed_between").fill_null(0.0),
+    ).with_columns(
+        bt_first_up_trial=(
+            (pl.col("days_since_last_run").fill_null(999) >= 60) & (pl.col("bt_n_between") > 0)
+        ).cast(pl.Float64)
+    )
+
+
 def _compute_features(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
     """The as-of feature pipeline (shared by the historical build + the M7 forward card)."""
     runs = runs.with_row_index("_row")
@@ -676,6 +771,7 @@ def _compute_features(runs: pl.DataFrame, cfg: AppConfig) -> pl.DataFrame:
     runs = _add_pace(runs, cfg)
     runs = _add_weight_dynamics(runs)
     runs = _add_class_drop(runs)
+    runs = _add_trial_signal(runs, cfg)
     return runs
 
 

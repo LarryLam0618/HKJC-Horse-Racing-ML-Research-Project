@@ -169,6 +169,7 @@ def _predict(
         feats,
         include_nlp=getattr(prod, "include_nlp", False),
         include_residual=getattr(prod, "include_residual", False),
+        include_trials=getattr(prod, "include_trials", False),
     )
     x = design.numeric() if prod.design == "numeric" else design.x
     race_no = feats["race_no"].to_numpy().astype(np.int64)

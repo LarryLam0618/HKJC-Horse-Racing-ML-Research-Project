@@ -487,7 +487,7 @@ three config groups:
   `declared_weight` so `weight_dynamics` computes live; `hkjc backtest --residual` persists to
   `result_residual.json` / `calibration_win_residual.png` so it never overwrites the baseline.
 
-`feature_version` -> **v3** (rebuild required). The group is kept out of `BASELINE_FEATURES`;
+`feature_version` -> **v3** (now **v4** with the trial group; rebuild required). The group is kept out of `BASELINE_FEATURES`;
 `numeric_design_features(include_nlp, include_residual)` -> `build_design` -> `load_model_data`
 carry the toggle, `train_production_model(--residual)` records it on the artifact so race-day
 rebuilds a matching design, and the M4 ablation harness is now group-generic:
@@ -504,7 +504,7 @@ comments tables stored here, so those columns are null in both arms):**
   trainer key + the spine-based rolling window.
 - **Canary stays clean:** coef ratio 0.050 baseline -> **0.054** with the group (sentinel ROI
   -19.7% either way), i.e. the new columns carry no leakage.
-- **Ablation (logit, 14,434 OOS races, after the as-of fix):** log-loss 2.2485 -> **2.2481**
+- **Ablation (logit, 14,434 OOS races, after the as-of fix, v3 baseline):** log-loss 2.2485 -> **2.2481**
   (-0.0004), top-1 0.2383 -> 0.2378, model-only WIN ROI -16.30% -> **-16.80%** (-0.50pp),
   market-blend WIN ROI -32.81% -> **-31.62%** (+1.19pp). **Marginal at best** -- the same verdict
   as the NLP group: **still no edge past the takeout** (PLAN §1F holds).
@@ -514,6 +514,44 @@ comments tables stored here, so those columns are null in both arms):**
   **distributional leak** the outcome-level canary cannot see (it stayed at 0.054 either way).
   Re-normalising as-of (expanding mean/std) removed the phantom improvement. A small as-of slip
   is enough to manufacture an "edge"; the canary is necessary, not sufficient.
+
+## trial_signal group (post-M7) -- barrier-trial form, 16-season archive
+
+**Backfill first.** The `btresult` landing dropdown spans ~one season, but HKJC serves the
+per-date page for every trial back to 2010-09 (verified 2010-2024; 2008-2010 return empty).
+`pipeline.trial_backfill_dates` + `hkjc scrape-trials --since 2010-09-01` probe every calendar
+day in the gap (trials are ~Tue/Thu/Fri but shift around holidays), record empty days in the
+manifest and write no file for them. ~5,400 dates / ~60 min at 5 req/s -> 83,903 runs. Because
+the baseline's `days_since_trial` / `had_recent_trial` now cover 16 seasons instead of one, the
+**baseline itself moved**: log-loss 2.2485 -> 2.2465 (feature_version v3 -> **v4**).
+
+**Study** (`reports/trial_signal.py`, market + log-layoff controls, seasons 2012-2026):
+`bt_n_between` +0.073 (**t=+3.8**), `bt_easy_win` -0.031 (**t=-2.6**, the market over-backs a
+flashy trial), `bt_rank_last` -0.026 (t=-1.6), `bt_first_up_trial` +0.024 (t=+1.4), the rest
+|t|<1.1. Raw effects are large (Failed trial since last race: win 4.2% vs 8.2%; easy trial win:
+12.5% vs 8.1%) but mostly priced. Walk-forward EV>=5%: 423 bets, ROI -3.0% [-30%, +29%].
+
+**Wired in** (`_trial_runs` + `_add_trial_signal` in `features/build.py`; `TRIAL_FEATURES` in
+`base.py`; `config/features.yaml: trial_signal`): the latest trial within 120 days via
+`join_asof(strategy="backward", allow_exact_matches=False)` (a race-day trial row is not prior
+form -- a test pins this) -> `bt_margin_last` / `bt_rank_last` / `bt_easy_win`; every trial
+between the previous race and this one (<=365d) -> `bt_n_between` / `bt_failed_between`;
+`bt_first_up_trial` = >=60-day break with a trial in it. `include_trials` is threaded like the
+other groups (`numeric_design_features` -> `build_design` -> `load_model_data`; `--trials` on
+`backtest` / `train-production`; `hkjc ablate --group trials`; recorded on the production
+artifact so race-day matches). Tagged artifacts: `result_trials.json`.
+
+**Ablation (logit, 14,434 OOS races, v4):** log-loss 2.2465 -> **2.2377 (-0.0089)**, top-1
+0.2382 -> 0.2394, model-only WIN ROI -16.99% -> **-17.98%**, market-blend WIN ROI -32.92% ->
+**-30.67%**. Canary 0.0515 (clean). The largest log-loss gain of any group (NLP -0.0012,
+residual -0.0004) -- the trial archive is real information the baseline recency pair did not
+capture -- and still **no edge past the takeout** (PLAN §1F holds a fourth time). For reference
+the residual group re-measured against the v4 baseline: log-loss -0.0004, model-only ROI
++1.31pp (was -0.50pp on v3) -- a reminder that +-1pp of model-only ROI is noise.
+
+**Draw-bias study** (`reports/draw_bias.py`, not wired): strictly as-of, shrunk win/place share
+per (venue x surface x distance x draw). Real bias (ST 1000m inside -10..-18%, outside
++13..+22%) but t=0.8 once the market is controlled. Third honest null.
 
 ## Next: post-M7 (all milestones done)
 

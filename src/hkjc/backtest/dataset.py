@@ -42,12 +42,17 @@ class ModelData:
 
 
 def load_model_data(
-    cfg: AppConfig | None = None, *, include_nlp: bool = False, include_residual: bool = False
+    cfg: AppConfig | None = None,
+    *,
+    include_nlp: bool = False,
+    include_residual: bool = False,
+    include_trials: bool = False,
 ) -> ModelData:
     """Build the shared :class:`ModelData` from the persisted feature store.
 
     ``include_nlp`` appends the lagged NLP group (M4 ablation); ``include_residual`` appends the
-    pace / weight-dynamics / class-deploy block (the 13-factor study) to the numeric design.
+    pace / weight-dynamics / class-deploy block (the 13-factor study) and ``include_trials`` the
+    barrier-trial signal block to the numeric design.
     """
     cfg = cfg or get_config()
     df = store.load_features(cfg)
@@ -63,7 +68,12 @@ def load_model_data(
     df = df.join(
         _dividend_lookup(cfg, "PLACE"), on=["race_date", "venue", "race_no", "saddle"], how="left"
     )
-    design = build_design(df, include_nlp=include_nlp, include_residual=include_residual)
+    design = build_design(
+        df,
+        include_nlp=include_nlp,
+        include_residual=include_residual,
+        include_trials=include_trials,
+    )
     return ModelData(
         x_full=design.x,
         numeric_indices=design.numeric_indices,

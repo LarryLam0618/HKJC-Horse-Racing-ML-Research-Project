@@ -11,6 +11,7 @@ import pytest
 from hkjc.features import build
 from hkjc.features.build import (
     _add_class_drop,
+    _add_trial_signal,
     _add_weight_dynamics,
     _class_ord,
     _horse_history,
@@ -256,3 +257,69 @@ def test_pace_pressure_neutral_when_undefined(monkeypatch: pytest.MonkeyPatch) -
     assert out["pace_close"].to_list() == out["late_rel"].to_list()
     assert out["led_held_hp"].to_list() == [0.0]
     assert out["hidden_hp"].to_list() == [0.0]
+
+
+def test_trial_signal_uses_prior_trials_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Horse H: race 1 on 2024-01-10, race 2 on 2024-04-20 (100-day break). Trials: one before
+    # race 1 (won easily), two between the races (one Failed), one ON race-day 2 (must be
+    # ignored: not strictly prior), one after (must never appear).
+    trials = pl.DataFrame(
+        {
+            "horse_id": ["H"] * 5 + ["X"] * 2,
+            "trial_date": [
+                date(2024, 1, 2),
+                date(2024, 3, 1),
+                date(2024, 4, 5),
+                date(2024, 4, 20),
+                date(2024, 5, 1),
+                date(2024, 1, 2),
+                date(2024, 4, 5),
+            ],
+            "location": ["SHA TIN ALL WEATHER TRACK"] * 7,
+            "batch": [1, 1, 1, 1, 1, 1, 1],
+            "time_s": [70.0, 71.0, 70.5, 70.0, 70.0, 71.0, 70.0],
+            "result": [None, "Failed", "Passed", None, None, None, None],
+            "comment": ["Led throughout; won easily.", "Green.", "Kept on.", "", "", "", ""],
+        }
+    )
+    monkeypatch.setattr(build, "_read_raw", lambda _cfg, _t, columns: trials.select(columns))
+    runs = pl.DataFrame(
+        {
+            "_row": [0, 1],
+            "horse_id": ["H", "H"],
+            "race_date": [date(2024, 1, 10), date(2024, 4, 20)],
+            "race_no": [1, 1],
+            "days_since_last_run": [None, 100],
+        }
+    )
+    out = _add_trial_signal(runs, cfg=None).sort("_row")  # type: ignore[arg-type]
+    # race 1: latest trial 2024-01-02 (8 days) -- H beat X in its batch, "won easily".
+    assert out["bt_easy_win"].to_list()[0] == 1.0
+    assert out["bt_margin_last"].to_list()[0] == 0.0
+    assert out["bt_rank_last"].to_list()[0] == 0.0
+    assert out["bt_n_between"].to_list()[0] == 1.0  # no previous race -> everything prior counts
+    assert out["bt_failed_between"].to_list()[0] == 0.0
+    assert out["bt_first_up_trial"].to_list()[0] == 1.0  # debut counts as a break with a trial
+    # race 2: the race-day trial is NOT the latest (gap 0 is not prior); latest = 2024-04-05,
+    # where H (70.5) lost to X (70.0) -> margin 0.5, rank 1/1 = 1.0, not an easy win.
+    assert out["bt_margin_last"].to_list()[1] == pytest.approx(0.5)
+    assert out["bt_rank_last"].to_list()[1] == 1.0
+    assert out["bt_easy_win"].to_list()[1] == 0.0
+    assert out["bt_n_between"].to_list()[1] == 2.0  # 03-01 and 04-05; not 04-20, not 05-01
+    assert out["bt_failed_between"].to_list()[1] == 1.0
+    assert out["bt_first_up_trial"].to_list()[1] == 1.0
+
+
+def test_trial_signal_without_archive_is_null(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(build, "_read_raw", lambda _cfg, _t, columns: pl.DataFrame())
+    runs = pl.DataFrame(
+        {
+            "_row": [0],
+            "horse_id": ["H"],
+            "race_date": [date(2024, 1, 10)],
+            "race_no": [1],
+            "days_since_last_run": [30],
+        }
+    )
+    out = _add_trial_signal(runs, cfg=None)  # type: ignore[arg-type]
+    assert out["bt_n_between"].to_list() == [None]

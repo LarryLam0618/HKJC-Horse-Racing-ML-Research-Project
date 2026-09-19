@@ -342,6 +342,9 @@ def backtest(
         bool,
         typer.Option("--residual", help="Add the pace/weight/class-drop group (13-factor)."),
     ] = False,
+    trials: Annotated[
+        bool, typer.Option("--trials", help="Add the barrier-trial signal group.")
+    ] = False,
 ) -> None:
     """Run an honest, time-ordered walk-forward backtest of the baseline (M2)."""
     from hkjc.backtest.engine import run_backtest
@@ -353,6 +356,7 @@ def backtest(
         seed=seed,
         make_plot=not no_plot,
         include_residual=residual,
+        include_trials=trials,
     )
     typer.echo(
         f"Walk-forward OOS: {res.n_oos_races} races, {res.n_oos_runners} runners "
@@ -423,7 +427,9 @@ def tune(
 
 @app.command()
 def ablate(
-    group: Annotated[str, typer.Option(help="Feature group to ablate: nlp or residual.")] = "nlp",
+    group: Annotated[
+        str, typer.Option(help="Feature group to ablate: nlp, residual or trials.")
+    ] = "nlp",
     seasons: Annotated[
         int | None, typer.Option(help="Only the most recent N test seasons (default: all).")
     ] = None,
@@ -503,11 +509,16 @@ def train_production(
         bool,
         typer.Option("--residual", help="Include the pace/weight/class-drop group (13-factor)."),
     ] = False,
+    trials: Annotated[
+        bool, typer.Option("--trials", help="Include the barrier-trial signal group.")
+    ] = False,
 ) -> None:
     """Fit a model on all history and persist it for race-day inference (M7)."""
     from hkjc.models.persist import train_production_model
 
-    path = train_production_model(model_name=model, include_nlp=nlp, include_residual=residual)
+    path = train_production_model(
+        model_name=model, include_nlp=nlp, include_residual=residual, include_trials=trials
+    )
     typer.echo(f"Saved production model '{model}' -> {path}")
 
 

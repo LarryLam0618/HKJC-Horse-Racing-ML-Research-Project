@@ -17,7 +17,7 @@ from hkjc.common.config import AppConfig, get_config
 from hkjc.experiments.runner import evaluate_model
 from hkjc.models.logit import ConditionalLogit
 
-GROUPS: tuple[str, ...] = ("nlp", "residual")
+GROUPS: tuple[str, ...] = ("nlp", "residual", "trials")
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,8 +38,9 @@ def run_ablation(
 ) -> AblationResult:
     """Walk-forward the conditional logit with and without ``group``; return both results.
 
-    ``group`` is ``"nlp"`` (the lagged comment signals, M4) or ``"residual"`` (the pace /
-    weight-dynamics / class-deploy block, the 13-factor study).
+    ``group`` is ``"nlp"`` (the lagged comment signals, M4), ``"residual"`` (the pace /
+    weight-dynamics / class-deploy block, the 13-factor study) or ``"trials"`` (the
+    barrier-trial signal block).
     """
     if group not in GROUPS:
         msg = f"unknown ablation group {group!r}; expected one of {list(GROUPS)}"
@@ -54,6 +55,7 @@ def run_ablation(
             cfg,
             include_nlp=include and group == "nlp",
             include_residual=include and group == "residual",
+            include_trials=include and group == "trials",
         )
         n_seasons = len(set(data.season.tolist()))
         min_train = 1 if max_test_seasons is None else max(1, n_seasons - max_test_seasons)

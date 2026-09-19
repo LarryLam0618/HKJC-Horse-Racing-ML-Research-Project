@@ -158,6 +158,28 @@ FEATURE_SPECS: tuple[FeatureSpec, ...] = (
     FeatureSpec(
         "drop_x_trsr", "fundamental", "class_deploy", "is_drop x trainer as-of class-drop strike."
     ),
+    # --- barrier-trial signal (#4 archive, reports/trial_signal.py; prior trials only) -- #
+    FeatureSpec(
+        "bt_n_between", "fundamental", "trial_signal", "Trials between the previous race and this."
+    ),
+    FeatureSpec(
+        "bt_failed_between", "fundamental", "trial_signal", "1 if a trial since last race Failed."
+    ),
+    FeatureSpec(
+        "bt_easy_win", "fundamental", "trial_signal", "1 if latest trial was won 'easily'."
+    ),
+    FeatureSpec(
+        "bt_first_up_trial", "fundamental", "trial_signal", "1 if >=60d break with a trial in it."
+    ),
+    FeatureSpec(
+        "bt_margin_last",
+        "fundamental",
+        "trial_signal",
+        "Latest trial: seconds behind batch winner.",
+    ),
+    FeatureSpec(
+        "bt_rank_last", "fundamental", "trial_signal", "Latest trial: (rank-1)/(n-1) in batch."
+    ),
     # --- market wall (closing line) ----------------------------------------- #
     FeatureSpec("market_prob", "market", "market", "Overround-adjusted SP-implied win prob."),
     FeatureSpec("win_odds", "market", "market", "Starting price (closing line; market data)."),
@@ -258,20 +280,35 @@ RESIDUAL_FEATURES: tuple[str, ...] = (
     *CLASS_DEPLOY_FEATURES,
 )
 
+# Barrier-trial form beyond the baseline's recency pair (days_since_trial / had_recent_trial):
+# what the horse *did* in its trials since the last race (reports/trial_signal.py, 16-season
+# archive). Ablatable so the marginal value of the trial archive can be measured.
+TRIAL_FEATURES: tuple[str, ...] = (
+    "bt_n_between",
+    "bt_failed_between",
+    "bt_easy_win",
+    "bt_first_up_trial",
+    "bt_margin_last",
+    "bt_rank_last",
+)
+
 
 def numeric_design_features(
-    include_nlp: bool = False, include_residual: bool = False
+    include_nlp: bool = False, include_residual: bool = False, include_trials: bool = False
 ) -> tuple[str, ...]:
     """The numeric design columns, with the ablatable groups optionally appended.
 
     ``include_nlp`` adds the lagged NLP block (M4); ``include_residual`` adds the pace /
-    weight-dynamics / class-deploy block (the 13-factor study).
+    weight-dynamics / class-deploy block (the 13-factor study); ``include_trials`` adds the
+    barrier-trial signal block.
     """
     cols = BASELINE_FEATURES
     if include_nlp:
         cols = (*cols, *NLP_FEATURES)
     if include_residual:
         cols = (*cols, *RESIDUAL_FEATURES)
+    if include_trials:
+        cols = (*cols, *TRIAL_FEATURES)
     return cols
 
 
