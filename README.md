@@ -35,9 +35,18 @@ the upstream README.
   `hkjc ablate --group residual|nlp` so race-day rebuilds a matching design and the leakage
   canary rides through the augmented fit. **Result:** betas reproduce the study (`late_rel3`
   +0.152, t = 3.5), canary stays clean (0.050 → 0.054), and on 14,434 OOS races log-loss
-  2.2485 → 2.2460, model-only WIN ROI −16.30% → −16.14%. A real but small gain — the
-  honest verdict is unchanged: **no edge past the takeout.** Full write-up in
+  2.2485 → 2.2481 (−0.0004), model-only WIN ROI −16.30% → −16.80%, market-blend WIN ROI
+  −32.81% → −31.62%. Marginal at best — the honest verdict is unchanged: **no edge past the
+  takeout.** Full write-up in
   [`CLAUDE.md`](CLAUDE.md#13-factor-residual-group-post-m7----wired-into-the-pipeline).
+
+  *A note on honesty:* the first cut reported a larger gain (log-loss −0.0025, ROI +0.15pp).
+  Reviewing the code found `pace_press` was standardised against the mean/std of *all* races
+  in its bucket — future seasons included — a distributional leak the outcome-level canary
+  cannot detect. Making the normalisation strictly as-of (expanding window) erased most of
+  the improvement. That correction, and the train/serve-skew fixes on the race-day path
+  (null class read as "Class 3"; card body weight fetched but dropped), are in the follow-up
+  commit and are now pinned by tests.
 - **Kelly test hardening** (`tests/test_risk_kelly.py`): the scipy reference optimiser used to
   sanity-check the closed-form simultaneous Kelly could stall at 0 when the optimum sits near
   the `sum(f) = 1` boundary (a Hypothesis-found case where the closed form was right), failing

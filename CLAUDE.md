@@ -504,10 +504,16 @@ comments tables stored here, so those columns are null in both arms):**
   trainer key + the spine-based rolling window.
 - **Canary stays clean:** coef ratio 0.050 baseline -> **0.054** with the group (sentinel ROI
   -19.7% either way), i.e. the new columns carry no leakage.
-- **Ablation (logit, 14,434 OOS races):** log-loss 2.2485 -> **2.2460** (-0.0025), top-1
-  0.2383 -> 0.2398, model-only WIN ROI -16.30% -> **-16.14%** (+0.15pp), market-blend WIN ROI
-  -32.81% -> **-30.96%** (+1.85pp). A real but **small** improvement -- the same verdict as the
-  NLP group: **still no edge past the takeout** (PLAN §1F holds).
+- **Ablation (logit, 14,434 OOS races, after the as-of fix):** log-loss 2.2485 -> **2.2481**
+  (-0.0004), top-1 0.2383 -> 0.2378, model-only WIN ROI -16.30% -> **-16.80%** (-0.50pp),
+  market-blend WIN ROI -32.81% -> **-31.62%** (+1.19pp). **Marginal at best** -- the same verdict
+  as the NLP group: **still no edge past the takeout** (PLAN §1F holds).
+- **Lesson (important):** the first cut reported a larger gain (log-loss -0.0025, model-only ROI
+  +0.15pp, blend +1.85pp). Most of it was an artefact: `pace_press` was z-scored against the
+  mean/std of *all* races in its (distance, n-sections) bucket -- including future seasons -- a
+  **distributional leak** the outcome-level canary cannot see (it stayed at 0.054 either way).
+  Re-normalising as-of (expanding mean/std) removed the phantom improvement. A small as-of slip
+  is enough to manufacture an "edge"; the canary is necessary, not sufficient.
 
 ## Next: post-M7 (all milestones done)
 
