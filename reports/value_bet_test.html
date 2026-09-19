@@ -1,0 +1,288 @@
+<title>搵「咩料」值博率測試</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Spectral:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#f4f3ee;--surface:#fbfaf6;--surface-2:#efeee7;
+    --ink:#1b201b;--ink-soft:#565c52;--ink-faint:#8b9184;--rule:#dad9cf;
+    --turf:#1f6b4a;--clay:#a4432e;--sky:#3f6f8f;--amber:#9a6b14;
+    --model-c:#a4432e;--market-c:#3f6f8f;--actual-c:#1b201b;
+    --shadow:0 1px 2px rgba(27,32,27,.05),0 8px 30px -18px rgba(27,32,27,.22);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#14160f;--surface:#1b1e17;--surface-2:#23261e;
+    --ink:#e9eae0;--ink-soft:#a7ad9d;--ink-faint:#767c6c;--rule:#33372c;
+    --turf:#5fb488;--clay:#e0806a;--sky:#7fb0cf;--amber:#d3a54f;
+    --model-c:#e0806a;--market-c:#7fb0cf;--actual-c:#e9eae0;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 40px -20px rgba(0,0,0,.6);
+  }}
+  :root[data-theme="dark"]{
+    --paper:#14160f;--surface:#1b1e17;--surface-2:#23261e;
+    --ink:#e9eae0;--ink-soft:#a7ad9d;--ink-faint:#767c6c;--rule:#33372c;
+    --turf:#5fb488;--clay:#e0806a;--sky:#7fb0cf;--amber:#d3a54f;
+    --model-c:#e0806a;--market-c:#7fb0cf;--actual-c:#e9eae0;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 40px -20px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Spectral","Songti TC","Songti SC","Noto Serif CJK TC",Georgia,serif;
+    font-size:18px;line-height:1.68;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:0 24px}
+  .prose{max-width:680px}
+  h1,h2,h3{font-family:"Fraunces","Songti TC","Songti SC",Georgia,serif;font-weight:500;line-height:1.22;text-wrap:balance}
+  h2{font-size:1.5rem;margin:3.6rem 0 .5rem;padding-bottom:.5rem;border-bottom:1px solid var(--rule)}
+  h2 .sub{display:block;font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--ink-faint);font-weight:400;margin-top:.5rem}
+  h3{font-size:1.08rem;margin:2rem 0 .5rem;font-weight:600}
+  p{margin:0 0 1rem}
+  strong{font-weight:600}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);padding:.06em .35em;border-radius:3px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 1.3rem}
+
+  header.mast{padding:4.2rem 0 2rem;border-bottom:2px solid var(--ink)}
+  header.mast h1{font-size:clamp(2rem,5vw,2.9rem);font-weight:400;margin:0 0 1rem;letter-spacing:-.01em}
+  header.mast .dek{font-size:1.05rem;color:var(--ink-soft);max-width:640px;margin:0}
+  .meta-line{display:flex;flex-wrap:wrap;gap:.5rem 1.6rem;margin-top:1.6rem;
+    font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:var(--ink-faint)}
+
+  .verdict{margin:2.6rem 0 1rem;background:var(--surface);border:1px solid var(--rule);
+    border-left:3px solid var(--clay);border-radius:3px;padding:1.6rem 1.8rem;box-shadow:var(--shadow)}
+  .verdict .tag{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--clay);margin:0 0 .6rem}
+  .verdict p{margin:.5rem 0 0;font-size:1rem}
+  .verdict p:first-of-type{font-size:1.15rem;color:var(--ink)}
+
+  .callout{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);
+    border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:1.6rem 0 2rem}
+  .callout>div{background:var(--surface);padding:1.2rem 1.3rem}
+  .callout .k{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+  .callout .v{font-family:"IBM Plex Mono",monospace;font-size:1.5rem;font-weight:600;margin-top:.35rem;font-variant-numeric:tabular-nums}
+  .callout .v.bad{color:var(--clay)}
+  .callout .v.good{color:var(--sky)}
+  .callout .sub{font-size:.85rem;color:var(--ink-soft);margin-top:.3rem}
+  @media (max-width:620px){.callout{grid-template-columns:1fr}}
+
+  figure{margin:1.8rem 0 1rem}
+  .chart-card{background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+    padding:1.4rem 1.2rem 1rem;box-shadow:var(--shadow)}
+  .chart-card svg{display:block;width:100%;height:auto;aspect-ratio:900/380;overflow:visible}
+  .legend{display:flex;flex-wrap:wrap;gap:1.1rem;margin:.9rem .3rem 0;font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-soft)}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:middle;margin-right:.4rem}
+  figcaption{font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);margin-top:.9rem;padding:0 .3rem;line-height:1.55}
+
+  .tbl-scroll{overflow-x:auto;margin:1.2rem 0 1.4rem}
+  table{border-collapse:collapse;width:100%;font-family:"IBM Plex Mono",monospace;font-size:.8rem}
+  caption{text-align:left;font-family:"Fraunces",serif;font-size:1.04rem;font-weight:600;margin-bottom:.6rem}
+  th,td{padding:.44rem .7rem;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--ink);font-weight:500}
+  tbody tr{border-bottom:1px solid var(--rule)}
+  td.neg{color:var(--clay)} td.pos{color:var(--turf)}
+  .dim{color:var(--ink-faint)}
+  tbody tr.hl{background:var(--surface-2)}
+
+  .note{background:var(--surface-2);border:1px solid var(--rule);border-radius:3px;padding:1.1rem 1.3rem;margin:1.5rem 0;font-size:.94rem;color:var(--ink-soft)}
+  .note b{color:var(--ink)}
+  ul.tight{margin:0 0 1.1rem;padding-left:1.15rem}
+  ul.tight li{margin:.4rem 0}
+  ol.steps{margin:0 0 1.1rem;padding-left:1.3rem}
+  ol.steps li{margin:.55rem 0}
+
+  footer{margin:4rem 0 3rem;padding-top:1.3rem;border-top:1px solid var(--rule);
+    font-family:"IBM Plex Mono",monospace;font-size:.73rem;color:var(--ink-faint);line-height:1.7}
+  @media (max-width:640px){body{font-size:16.5px}.wrap{padding:0 18px}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">HKJC · 值博率方法測試</p>
+  <h1>「搵咩料」—— 個方法啱,但你副模型過唔到關</h1>
+  <p class="dek">你講嘅 Overlay / 值博率 betting,正正就係 Benter 嗰套。要成功只有一個前提:
+  你副模型計嘅勝率,要<b>準過馬會收市盤</b>。呢份報告用 <b>16 季 / 12,934 場</b>(2010–2026,
+  逐季 walk-forward 重新訓練)對 form + 騎師模型做咗呢個關鍵測試。結果:<b>過唔到,而且越嚟越差</b>。</p>
+  <div class="meta-line"><span>12,934 場 / 158,832 匹次</span><span>2010-09 → 2026-07(16 季)</span><span>逐季 walk-forward OOS</span></div>
+</header>
+
+<div class="verdict">
+  <p class="tag">結論</p>
+  <p>你副模型搵到嘅每一個「水位」,實際上都係<strong>模型自己計錯</strong>,唔係公眾買錯。
+  馬會收市盤已經係更準嘅機率估計。</p>
+  <p style="color:var(--ink-soft)">照買 overlay(模型機率 ÷ 市場機率 &gt; 1.15)→ 16 季 ROI <strong>−30%</strong>。
+  「水位」越大蝕越多,極端 overlay 蝕到 <strong>−38%</strong>。16 季 × 4 個門檻 = 64 個組合,
+  淨係 <strong>1 個</strong>(2011-12,edge≥1.3)信賴區間掂到正數 —— 純運氣。</p>
+</div>
+
+<h2>一、方法本身無錯<span class="sub">the value-betting thesis — restated</span></h2>
+<div class="prose">
+<p>你嘅框架完全正確,教科書寫法:</p>
+<ol class="steps">
+  <li>用一大堆數據計出隻馬嘅<strong>真實勝出概率</strong> <code>p</code>。</li>
+  <li>對比臨場賠率隱含嘅市場概率 <code>q = 1 / 賠率</code>(除返 overround)。</li>
+  <li>當 <code>p &gt; q</code>(例如模型計 25%,賠率俾到 6 倍 = 市場只當佢 16%),就係 <strong>Overlay</strong>。</li>
+  <li>長線只買 overlay,理論上 <code>p × 賠率 − 1 &gt; 0</code>,回報率就會出。</li>
+</ol>
+<p>Benter 團隊 1980–2000 年代喺香港就係咁做,估計贏咗超過 10 億港元。<strong>唯一嘅關鍵</strong>:
+第 1 步計出嘅 <code>p</code>,要真係比市場嘅 <code>q</code> 準 —— 否則你以為嘅「水位」只係你自己嘅估計誤差。</p>
+</div>
+
+<h2>二、關鍵測試:你副模型準過市場嗎?<span class="sub">calibration + conditional logit</span></h2>
+
+<h3>2a. 純準繩度(log-loss,越低越準)</h3>
+<div class="callout">
+  <div><div class="k">市場收市盤(16 季)</div><div class="v good">0.2374</div><div class="sub">Brier 0.0666</div></div>
+  <div><div class="k">Form + 騎師模型</div><div class="v bad">0.2575</div><div class="sub">Brier 0.0706 — 差過市場</div></div>
+</div>
+<p class="prose">兩者都算校準得好(模型話 X% 就大約真係贏 X%),
+但<strong>市場喺每一個年代、每一個指標都準過模型</strong>(2010–15、2016–20、2021–26 都係)。
+單靠呢點已經睇到模型冇 edge。</p>
+
+<h3>2b. 條件 logit —— 最決定性嘅測試</h3>
+<div class="note">
+<p style="margin:0 0 .6rem">同時用市場同模型去解釋賽果:<br>
+<code>P(贏) ∝ a · logit(市場機率) + b · logit(模型機率)</code>,場內 softmax。</p>
+<p style="margin:0"><b>如果 b &gt; 0 而且顯著</b> → 知道賠率之後,模型仲有補充資訊 → 值博率玩得起。</p>
+</div>
+<div class="callout">
+  <div><div class="k">市場權重 a(16 季)</div><div class="v good">+1.10</div><div class="sub">t = 70 &nbsp;(極顯著,正)</div></div>
+  <div><div class="k">模型權重 b(16 季)</div><div class="v bad">−0.05</div><div class="sub">t = −3.1 &nbsp;(顯著<b>負</b>)</div></div>
+</div>
+<div class="tbl-scroll"><table>
+  <caption>模型權重 b 逐年代 —— 由「零」滑落到「顯著負」</caption>
+  <thead><tr><th>年代</th><th>市場權重 a</th><th>模型權重 b</th><th>b 嘅 t 值</th><th>解讀</th></tr></thead>
+  <tbody>
+    <tr><td>2010–2015</td><td>+1.07</td><td>+0.01</td><td>+0.3</td><td>模型冇補充資訊(b ≈ 0,唔顯著)</td></tr>
+    <tr><td>2016–2020</td><td>+1.12</td><td class="neg">−0.09</td><td class="neg">−2.7</td><td>模型開始拖後腿</td></tr>
+    <tr><td>2021–2026</td><td>+1.17</td><td class="neg">−0.14</td><td class="neg">−4.1</td><td>模型顯著咁錯,越嚟越明顯</td></tr>
+  </tbody>
+</table></div>
+<p class="prose"><strong>連最好嗰個年代(2010–15),b 都只係 +0.01 —— 統計上等於零。</strong>
+之後 15 年市場越變越精,模型嘅增量價值由零跌落負數。當模型同市場唔同意,<strong>市場啱、模型錯</strong>,
+而家最優混合係「117% 市場 − 14% 模型」—— 即係應該<strong>反手 fade 你副模型</strong>。
+呢個正正就係 Benter edge 逐年被侵蝕嘅同一個現象。</p>
+
+<h2>三、「水位」嘅真面目<span class="sub">every overlay is a model error</span></h2>
+<figure>
+  <div class="chart-card">
+    <svg id="chart" viewBox="0 0 900 380" role="img" aria-label="按 edge 分組的柱狀圖:overlay 組別中,實際勝率貼近市場機率,而模型機率遠高於兩者">
+    </svg>
+    <div class="legend">
+      <span><i style="background:var(--model-c)"></i>模型話(勝率)</span>
+      <span><i style="background:var(--market-c)"></i>市場話</span>
+      <span><i style="background:var(--actual-c)"></i>實際勝率</span>
+    </div>
+  </div>
+  <figcaption>X 軸 = edge(模型機率 ÷ 市場機率),16 季合計。右邊三組係模型眼中嘅「大水位」——
+  但實際勝率(黑)幾乎貼住市場(藍),模型(紅)遠遠高估。edge 2.5+ 組:模型話 7.4%,市場話 2.0%,實際 1.7%。</figcaption>
+</figure>
+
+<div class="tbl-scroll"><table>
+  <caption>按 edge 分組(2010–2026):實際 vs 模型 vs 市場,同 flat ROI</caption>
+  <thead><tr><th>edge = 模型/市場</th><th>匹次</th><th>模型話</th><th>市場話</th><th>實際勝率</th><th>flat ROI</th><th>90% CI</th></tr></thead>
+  <tbody>
+    <tr><td>&lt;0.6(模型話市場高估)</td><td>27,316</td><td>5.6%</td><td>13.0%</td><td>13.6%</td><td class="neg">−19.8%</td><td>[−22.6, −17.0]</td></tr>
+    <tr><td>0.6–0.8</td><td>20,741</td><td>8.6%</td><td>12.3%</td><td>12.9%</td><td class="neg">−16.4%</td><td>[−20.3, −12.6]</td></tr>
+    <tr><td>0.8–0.95</td><td>15,410</td><td>9.4%</td><td>10.7%</td><td>10.8%</td><td class="neg">−20.0%</td><td>[−24.6, −15.0]</td></tr>
+    <tr><td>≈ 市場</td><td>9,383</td><td>9.5%</td><td>9.5%</td><td>9.3%</td><td class="neg">−23.3%</td><td>[−28.9, −17.7]</td></tr>
+    <tr class="hl"><td>1.05–1.25 overlay</td><td>16,223</td><td>9.3%</td><td>8.1%</td><td>7.8%</td><td class="neg">−28.8%</td><td>[−32.8, −24.3]</td></tr>
+    <tr class="hl"><td>1.25–1.6 overlay</td><td>20,733</td><td>9.1%</td><td>6.5%</td><td>6.5%</td><td class="neg">−23.7%</td><td>[−28.1, −19.0]</td></tr>
+    <tr class="hl"><td>1.6–2.5 overlay</td><td>26,884</td><td>8.4%</td><td>4.3%</td><td>4.0%</td><td class="neg">−29.2%</td><td>[−33.7, −24.4]</td></tr>
+    <tr class="hl"><td>2.5+ 極端 overlay</td><td>22,142</td><td>7.4%</td><td>2.0%</td><td>1.7%</td><td class="neg">−37.6%</td><td>[−45.0, −30.5]</td></tr>
+  </tbody>
+</table></div>
+<p class="prose">睇 overlay 組別(highlight):<strong>實際勝率永遠貼近「市場話」,唔係「模型話」</strong>。
+最刺眼嘅對照 —— 反手買模型話「唔抵」(edge 0.6–0.8)嗰批,只蝕 <strong>−16%</strong>,反而好過買任何 overlay 組。
+即係話模型嘅訊號相對市場係<strong>反預測</strong>:佢話「抵買」你就唔好買。</p>
+
+<h2>四、Overlay 策略回測 · 16 季<span class="sub">nothing clears the takeout — in any season</span></h2>
+<div class="tbl-scroll"><table>
+  <thead><tr><th>策略(2010–2026,12,934 場)</th><th>注數</th><th>ROI</th><th>90% CI</th><th>16 季入面正 ROI 嘅季</th></tr></thead>
+  <tbody>
+    <tr><td>edge ≥ 1.00 · flat</td><td>90,488</td><td class="neg">−29.7%</td><td>[−32.2, −27.0]</td><td>0 / 16</td></tr>
+    <tr><td>edge ≥ 1.15 · flat</td><td>77,385</td><td class="neg">−30.1%</td><td>[−32.9, −27.2]</td><td>0 / 16</td></tr>
+    <tr><td>edge ≥ 1.30 · flat</td><td>66,200</td><td class="neg">−30.2%</td><td>[−33.4, −26.8]</td><td>0 / 16 &nbsp;<span class="dim">(2011-12 CI 掂到 +6%)</span></td></tr>
+    <tr><td>edge ≥ 1.60 · flat</td><td>49,026</td><td class="neg">−33.0%</td><td>[−37.1, −29.2]</td><td>0 / 16</td></tr>
+  </tbody>
+</table></div>
+<p class="prose">逐季睇:<strong>16 季 × 4 個門檻 = 64 個組合,冇一個 ROI 係正數</strong>。最好嘅一格係
+2011-12 季 edge≥1.3(−9.7%,CI −24% 至 +6%)—— 16 季得嗰一次,係運氣唔係 edge。
+最差嘅係 2024-25(−45%)。冇任何門檻、賠率範圍、注碼法、年份做到穩定正數。</p>
+
+<h2>五、Benter 有,而你冇嘅嘢<span class="sub">what the edge actually requires</span></h2>
+<div class="prose">
+<ul class="tight">
+  <li><strong>逐盤即時賠率歷史</strong>(而家:零)。Benter 好大部份 edge 嚟自臨場資金流 —— 開閘前最後幾分鐘賠率點郁、邊個 pool 有大注入。靜態 SP 已經係最有效率嗰個價,冇得再搾。要由今日開始行 M7 logger 儲。</li>
+  <li><strong>自家分段速度指數</strong>。<code>sectionals_clean.csv</code> 有 2008 年起 67 萬行,仲未整合入模型。normalise 分段時間做 speed figure,係唯一可能喺市場殘差入面搵到訊號嘅方向。</li>
+  <li><strong>正確嘅訓練方法</strong>:唔係「train 一個獨立模型再事後同市場比」,而係<b>一次過</b> fit 一個條件 logit,input 同時放市場 log-odds + 所有基本面,睇邊個基本面喺「市場已知」之後仲有正權重。冇 → 冇 edge。</li>
+  <li><strong>規模同時間</strong>。Benter 團隊幾十人、廿年、幾千萬本、專屬電腦房 —— 而 edge 都係逐年被市場侵蝕。上面條件 logit 嗰個由 +0.01 跌到 −0.14 嘅趨勢,就係同一個現象喺你數據入面嘅倒影。單人 + 公開數據要由零複製,難度極高。</li>
+</ul>
+</div>
+
+<div class="note">
+<b>底線:</b> 你嘅方法論 100% 正確,唔使改。要改嘅係<b>模型</b> —— 佢而家嘅機率估計喺過去 16 季
+每一季都比馬會收市盤差,所以佢搵到嘅「水位」係鏡花水月。喺攞到即時賠率歷史 + 整合分段速度之前,
+誠實嘅預期係:搵唔到真正嘅料。
+</div>
+
+<footer>
+  資料:results.csv + races.csv + dividends.csv / win_odds。模型 = 狀態 + 騎師 LightGBM,
+  <b>逐季 walk-forward</b>:每季用之前所有季訓練、predict 嗰季(2010-11 起,需要 ≥2 季打底,所以由 2010 而非 2008)。<br>
+  WIN 回報用 win_odds(= 派彩 ÷ 10)。市場機率為場內正規化(除 overround)。條件 logit:Nelder-Mead MLE,SE 由有限差分 Hessian。<br>
+  ROI 信賴區間:按場 bootstrap。腳本:reports/value_bet_test.py。此報告只作研究,不構成投注建議。
+</footer>
+</div>
+
+<script>
+(function () {
+  const G = [
+    { k: "<0.6", model: 5.6, market: 13.0, actual: 13.6 },
+    { k: "0.6–0.8", model: 8.6, market: 12.3, actual: 12.9 },
+    { k: "0.8–0.95", model: 9.4, market: 10.7, actual: 10.8 },
+    { k: "≈市場", model: 9.5, market: 9.5, actual: 9.3 },
+    { k: "1.05–1.25", model: 9.3, market: 8.1, actual: 7.8 },
+    { k: "1.25–1.6", model: 9.1, market: 6.5, actual: 6.5 },
+    { k: "1.6–2.5", model: 8.4, market: 4.3, actual: 4.0 },
+    { k: "2.5+", model: 7.4, market: 2.0, actual: 1.7 },
+  ];
+  const W = 900, H = 380, PL = 44, PR = 12, PT = 18, PB = 54;
+  const iw = W - PL - PR, ih = H - PT - PB;
+  const ymax = 16;
+  const y = v => PT + ih - v / ymax * ih;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const svg = document.getElementById("chart");
+
+  [0, 4, 8, 12, 16].forEach(v => {
+    svg.appendChild(el("line", { x1: PL, x2: W - PR, y1: y(v), y2: y(v), stroke: css("--rule"), "stroke-width": 1 }));
+    const t = el("text", { x: PL - 8, y: y(v) + 3.5, "text-anchor": "end", fill: css("--ink-faint"), "font-family": "IBM Plex Mono, monospace", "font-size": 10.5 });
+    t.textContent = v + "%"; svg.appendChild(t);
+  });
+
+  const bw = iw / G.length;
+  const cols = [["model", "--model-c"], ["market", "--market-c"], ["actual", "--actual-c"]];
+  G.forEach((g, i) => {
+    const x0 = PL + i * bw;
+    const gw = bw * 0.72, bar = gw / 3;
+    cols.forEach(([key, c], j) => {
+      const v = g[key];
+      const r = el("rect", {
+        x: x0 + (bw - gw) / 2 + j * bar, y: y(v), width: bar - 2,
+        height: Math.max(0, y(0) - y(v)), fill: css(c), rx: 1
+      });
+      svg.appendChild(r);
+    });
+    const lab = el("text", { x: x0 + bw / 2, y: H - 32, "text-anchor": "middle", fill: css("--ink-soft"), "font-family": "IBM Plex Mono, monospace", "font-size": 10.5 });
+    lab.textContent = g.k; svg.appendChild(lab);
+    if (i >= 4) {
+      const band = el("rect", { x: x0, y: PT, width: bw, height: ih, fill: css("--clay"), opacity: 0.06 });
+      svg.insertBefore(band, svg.firstChild);
+    }
+  });
+  const cap = el("text", { x: PL + 4.5 * bw, y: H - 12, "text-anchor": "middle", fill: css("--ink-faint"), "font-family": "IBM Plex Mono, monospace", "font-size": 10 });
+  cap.textContent = "← 模型話市場高估      |      模型話市場低估(overlay)→";
+  svg.appendChild(cap);
+})();
+</script>

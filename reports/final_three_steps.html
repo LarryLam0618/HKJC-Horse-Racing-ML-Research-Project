@@ -1,0 +1,226 @@
+<title>最後三步的結果</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Spectral:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#f4f3ee;--surface:#fbfaf6;--surface-2:#efeee7;
+    --ink:#1b201b;--ink-soft:#565c52;--ink-faint:#8b9184;--rule:#dad9cf;
+    --turf:#1f6b4a;--turf-bar:#4f9a72;--clay:#a4432e;--clay-bar:#c9765f;--amber:#9a6b14;
+    --shadow:0 1px 2px rgba(27,32,27,.05),0 8px 30px -18px rgba(27,32,27,.22);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#14160f;--surface:#1b1e17;--surface-2:#23261e;
+    --ink:#e9eae0;--ink-soft:#a7ad9d;--ink-faint:#767c6c;--rule:#33372c;
+    --turf:#5fb488;--turf-bar:#3f8a63;--clay:#e0806a;--clay-bar:#a5563f;--amber:#d3a54f;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 40px -20px rgba(0,0,0,.6);
+  }}
+  :root[data-theme="dark"]{
+    --paper:#14160f;--surface:#1b1e17;--surface-2:#23261e;
+    --ink:#e9eae0;--ink-soft:#a7ad9d;--ink-faint:#767c6c;--rule:#33372c;
+    --turf:#5fb488;--turf-bar:#3f8a63;--clay:#e0806a;--clay-bar:#a5563f;--amber:#d3a54f;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 40px -20px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Spectral","Songti TC","Songti SC","Noto Serif CJK TC",Georgia,serif;
+    font-size:18px;line-height:1.68;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:0 24px}
+  .prose{max-width:680px}
+  h1,h2,h3{font-family:"Fraunces","Songti TC","Songti SC",Georgia,serif;font-weight:500;line-height:1.22;text-wrap:balance}
+  h2{font-size:1.5rem;margin:3.6rem 0 .5rem;padding-bottom:.5rem;border-bottom:1px solid var(--rule)}
+  h2 .sub{display:block;font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);font-weight:400;margin-top:.5rem}
+  h3{font-size:1.08rem;margin:2rem 0 .5rem;font-weight:600}
+  p{margin:0 0 1rem}
+  strong{font-weight:600}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--surface-2);padding:.06em .35em;border-radius:3px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 1.3rem}
+  header.mast{padding:4.2rem 0 2rem;border-bottom:2px solid var(--ink)}
+  header.mast h1{font-size:clamp(2rem,5vw,2.8rem);font-weight:400;margin:0 0 1rem;letter-spacing:-.01em}
+  header.mast .dek{font-size:1.05rem;color:var(--ink-soft);max-width:660px;margin:0}
+  .meta-line{display:flex;flex-wrap:wrap;gap:.5rem 1.6rem;margin-top:1.6rem;font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:var(--ink-faint)}
+
+  .scorecard{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:2.4rem 0 1rem}
+  .scorecard>div{background:var(--surface);padding:1.3rem 1.2rem}
+  .scorecard .n{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .scorecard .r{font-family:"Fraunces",serif;font-size:1.15rem;font-weight:600;margin:.4rem 0 .3rem}
+  .scorecard .r.no{color:var(--clay)} .scorecard .r.part{color:var(--amber)} .scorecard .r.yes{color:var(--turf)}
+  .scorecard .d{font-size:.85rem;color:var(--ink-soft);line-height:1.5}
+  @media (max-width:680px){.scorecard{grid-template-columns:1fr}}
+
+  figure{margin:1.6rem 0}
+  .chart-card{background:var(--surface);border:1px solid var(--rule);border-radius:3px;padding:1.4rem 1.3rem 1rem;box-shadow:var(--shadow)}
+  .chart-card svg{display:block;width:100%;height:auto;aspect-ratio:900/340;overflow:visible}
+  figcaption{font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);margin-top:.9rem;padding:0 .3rem;line-height:1.55}
+
+  .tbl-scroll{overflow-x:auto;margin:1.1rem 0 1.4rem}
+  table{border-collapse:collapse;width:100%;font-family:"IBM Plex Mono",monospace;font-size:.8rem}
+  caption{text-align:left;font-family:"Fraunces",serif;font-size:1.02rem;font-weight:600;margin-bottom:.6rem}
+  th,td{padding:.42rem .7rem;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-size:.65rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--ink);font-weight:500}
+  tbody tr{border-bottom:1px solid var(--rule)}
+  td.pos{color:var(--turf);font-weight:600} td.neg{color:var(--clay);font-weight:600} td.dim{color:var(--ink-faint)}
+  tbody tr.grp td{background:var(--surface-2);font-family:"Fraunces",serif;font-weight:600;font-size:.82rem;text-align:left}
+
+  .note{background:var(--surface-2);border:1px solid var(--rule);border-radius:3px;padding:1.1rem 1.3rem;margin:1.5rem 0;font-size:.93rem;color:var(--ink-soft)}
+  .note b{color:var(--ink)}
+  ul.tight{margin:0 0 1.1rem;padding-left:1.15rem}
+  ul.tight li{margin:.4rem 0}
+  footer{margin:4rem 0 3rem;padding-top:1.3rem;border-top:1px solid var(--rule);font-family:"IBM Plex Mono",monospace;font-size:.73rem;color:var(--ink-faint);line-height:1.7}
+  @media (max-width:640px){body{font-size:16.5px}.wrap{padding:0 18px}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">HKJC · 最後三步</p>
+  <h1>執行「最後三步」之後,去到邊?</h1>
+  <p class="dek">步 1 步速情景模型、步 2 即時賠率 logger、步 3 引入正交殘差訊號 —— 逐個做咗。
+  結果:三個假設,<strong>一個唔成立、一個要向前儲、一個部份成立</strong>。
+  合埋之後,EV 篩選落注推到 <strong>「統計上分唔清同打和有冇分別」</strong> —— 但唔係穩定盈利。</p>
+  <div class="meta-line"><span>12,167 場 / 2011–2026</span><span>OOS 9,858 場</span><span>市場做 baseline control</span></div>
+</header>
+
+<div class="scorecard">
+  <div>
+    <div class="n">步 1 · 步速模型</div>
+    <div class="r no">唔成立 ✗</div>
+    <div class="d">步速加權嘅收放圖(<code>pace_close3</code>)殘差 <b>t = −3.7</b>。純末段速度(t = +3.2)先係訊號,步速情景<b>放大唔到</b>,反而略為拖低 —— 市場已經定價咗步速。</div>
+  </div>
+  <div>
+    <div class="n">步 2 · 即時賠率 logger</div>
+    <div class="r part">要向前儲 ⏳</div>
+    <div class="d">code 已經喺 <code>src/hkjc/data/live/</code>(<code>hkjc log-odds</code>)。零歷史逐盤賠率 → <b>無得回測</b>,只能由今日開始儲,起碼 1–2 季。仍然係最有潛力嗰條槓桿。</div>
+  </div>
+  <div>
+    <div class="n">步 3 · 正交訊號</div>
+    <div class="r part">部份成立 ◐</div>
+    <div class="d"><b>體重回歸</b>(抖夠 45 日 + 重返 8 磅以上):t = +2.8,同速度訊號相關 0.02 —— 真·正交,真·新訊號。<b>練馬師轉降班部署</b>:t &lt; 1,市場已完全定價。</div>
+  </div>
+</div>
+
+<h2>步 1:步速情景模型 —— 點解唔成立<span class="sub">the pace model doesn't amplify the signal</span></h2>
+<div class="prose">
+<p>由分段表計「步速壓力」= 領放馬早段有幾快(場內同距離/段數 z-score)。
+再整<strong>步速加權收放圖</strong> <code>pace_close = late_rel × (1 + 步速壓力)</code> —— 即係喺快步速下仍然收得快,分數加倍。</p>
+</div>
+<div class="tbl-scroll"><table>
+  <thead><tr><th>因子</th><th>β</th><th>t</th><th>結論</th></tr></thead>
+  <tbody>
+    <tr><td>late_rel3 純末段速度殘差</td><td class="pos">+0.145</td><td class="pos">+3.2</td><td>訊號喺呢度</td></tr>
+    <tr><td>pace_close3 步速加權收放圖</td><td class="neg">−0.148</td><td class="neg">−3.7</td><td>加權項嘅增量 = 負 → <b>放大唔到</b></td></tr>
+    <tr><td>led_held3 領放頂得住快步速</td><td class="dim">−0.002</td><td class="dim">−0.2</td><td>零</td></tr>
+    <tr><td>hidden_hp3 真·跑race 入面嘅暗湧</td><td class="dim">+0.007</td><td class="dim">+0.6</td><td>零</td></tr>
+  </tbody>
+</table></div>
+<p class="prose">「喺超快步速下造快末段 = 含金量十倍」呢個講法<strong>racing lore 上合理,但數據唔支持</strong>。
+兩個係數合埋(+0.145 − 0.148 ≈ 0)即係:步速情景嘅<strong>增量資訊 ≈ 零</strong>,純相對末段速度已經係全部。
+市場睇賽片睇得夠仔細,步速偏差佢哋早就 price 咗。</p>
+
+<h2>步 3:三個訊號真係互相獨立<span class="sub">orthogonality confirmed</span></h2>
+<div class="tbl-scroll"><table>
+  <caption>訊號之間嘅相關(標準化後)—— 要接近 0 先算正交</caption>
+  <thead><tr><th></th><th>末段速度</th><th>體重變化</th><th>轉降班</th></tr></thead>
+  <tbody>
+    <tr><td>末段速度 pace_close3</td><td>1.00</td><td>0.02</td><td>−0.07</td></tr>
+    <tr><td>體重變化 bw_chg</td><td>0.02</td><td>1.00</td><td>−0.01</td></tr>
+    <tr><td>轉降班 is_drop</td><td>−0.07</td><td>−0.01</td><td>1.00</td></tr>
+  </tbody>
+</table></div>
+<p class="prose">相關全部 &lt; 0.07 —— <strong>速度、體重、班次部署係三個完全獨立嘅維度</strong>。
+正交訊號嘅重點就係咁:如果佢哋各有 t≈2.5,合埋嘅信噪比會叠加。問題係邊個真係有 t。</p>
+
+<div class="tbl-scroll"><table>
+  <caption>一體化條件 logit · 各因子殘差權重(市場 a = +1.11,t = 69)</caption>
+  <thead><tr><th>因子</th><th>β</th><th>t</th><th>解讀</th></tr></thead>
+  <tbody>
+    <tr class="grp"><td colspan="4">有正殘差(市場漏咗)</td></tr>
+    <tr><td>late_rel3 分段末段速度</td><td class="pos">+0.145</td><td class="pos">+3.2</td><td>最強單一訊號</td></tr>
+    <tr><td>bw_up_fresh 抖夠+重返(體重動態)</td><td class="pos">+0.036</td><td class="pos">+2.8</td><td><b>新·正交訊號</b>(同速度相關 0.02)</td></tr>
+    <tr><td>draw_pct 相對檔位(闊檔)</td><td class="pos">+0.024</td><td class="pos">+2.3</td><td>市場對闊檔罰太狠</td></tr>
+    <tr><td>avg_fin_l3 近3仗名次</td><td>+0.043</td><td>+2.4</td><td>邊緣(spec 敏感)</td></tr>
+    <tr class="grp"><td colspan="4">冇殘差(市場已完全定價)</td></tr>
+    <tr><td>bw_chg / bw_vs_avg / bw_drop 淨體重變化</td><td class="dim">~0</td><td class="dim">|t|&lt;1.5</td><td>淨變化冇用,得「重返+抖夠」個組合先有</td></tr>
+    <tr><td>is_drop 轉降班</td><td class="dim">−0.007</td><td class="dim">−0.2</td><td>市場定價</td></tr>
+    <tr><td>drop_x_trsr 練馬師×降班部署</td><td class="dim">−0.027</td><td class="dim">−0.9</td><td>市場定價</td></tr>
+    <tr class="grp"><td colspan="4">顯著負(市場買凸咗 —— 反手 fade)</td></tr>
+    <tr><td>j_winr 騎師往績勝率</td><td class="neg">−0.027</td><td class="neg">−2.9</td><td>大眾追捧當炒騎師</td></tr>
+  </tbody>
+</table></div>
+
+<h2>合埋之後:落注測試<span class="sub">13-factor integrated model, walk-forward, SP line</span></h2>
+<div class="tbl-scroll"><table>
+  <thead><tr><th>策略(OOS 2014–2026,9,858 場)</th><th>注 / 場</th><th>平均賠率</th><th>ROI</th><th>95% CI</th><th>P(ROI&lt;0)</th></tr></thead>
+  <tbody>
+    <tr><td>整合模型 · edge ≥ 1.15</td><td>1,942 / 1,782</td><td>20.5</td><td class="neg">−9.8%</td><td>[−25.9, +8.7]</td><td>86%</td></tr>
+    <tr><td>整合模型 · EV ≥ 0%</td><td>775 / 557</td><td>29.9</td><td class="neg">−6.7%</td><td>[−32.4, +23.5]</td><td>70%</td></tr>
+    <tr><td>整合模型 · EV ≥ 5%</td><td>440 / 280</td><td>34.2</td><td class="neg">−3.8%</td><td>[−43.0, +48.0]</td><td>59%</td></tr>
+    <tr><td>整合模型 · EV ≥ 10%</td><td>293 / 167</td><td>39.3</td><td class="neg">−1.4%</td><td>[−46.9, +69.9]</td><td>57%</td></tr>
+    <tr><td>整合模型 · EV ≥ 20%</td><td>176 / 92</td><td>43.7</td><td class="neg">−21.9%</td><td>[−56.5, +15.5]</td><td>89%</td></tr>
+  </tbody>
+</table></div>
+<p class="prose"><strong>整合模型將 EV 篩選落注推到 −1% 至 −4%</strong> —— 即係喺呢批選擇上,17.5% 抽水基本上追返晒。
+對比獨立 form 模型 −30%、單一分段訊號 −9%,係實實在在嘅進步。<strong>但 95% 信賴區間 [−43%, +48%] 咁闊,
+等於話「同打和有冇分別,分唔清」。</strong></p>
+
+<figure>
+  <div class="chart-card">
+    <svg id="chart" viewBox="0 0 900 340" role="img" aria-label="逐季 EV≥5% 策略 ROI 柱狀圖:2014-17 正、2017-21 連續四季 −50% 至 −84%、2021-25 大幅反彈、2025-26 −11%,大上大落。"></svg>
+  </div>
+  <figcaption>逐季 EV≥5% 策略 ROI(每季 22–61 注)。「差唔多打和」嘅總數,係一堆 +30%~+80% 同 −50%~−89% 溝出嚟。
+  2017-18 至 2020-21 <strong>連續四季蝕 50–84%</strong>。</figcaption>
+</figure>
+
+<h2>整場調查嘅老實結論<span class="sub">where 15 years of public data lands you</span></h2>
+<div class="prose">
+<ul class="tight">
+  <li><strong>方法論全對</strong>:市場做 baseline control 的一體化 fit,係正確做法。傳統 form 喺呢個框架下殘差 ≈ 0,證實「獨立 train 再事後比」係錯。</li>
+  <li><strong>真正有殘差嘅得三樣</strong>:分段末段速度(t 3.2)、體重回歸(t 2.8,正交)、市場對闊檔矯枉過正(t 2.3);外加「反手 fade 當炒騎師/頂磅馬/慣性慢牛」。</li>
+  <li><strong>步速情景加唔到嘢</strong> —— 市場已經 price 咗。</li>
+  <li><strong>合埋剛好夠中和抽水</strong>,喺一年 20–40 注、平均賠率 30+ 嘅一薄片冷門上。<strong>唔係穩定盈利</strong>:一半年份蝕 50–90%,要有捱得住 −80% 一季嘅本金同心臟。</li>
+  <li><strong>唯一可能改寫結局嘅係步 2</strong> —— 逐盤即時賠率走勢(智慧資金流)。但佢無得回測,要向前 commit 一兩季先知。</li>
+</ul>
+<p>簡單講:用公開 + 場內數據,你可以砌到一個「抹平抽水」嘅模型,喺好窄嘅冷門切片度。
+但「抹平抽水」同「穩定贏錢」之間,仲差一個你而家攞唔到嘅東西 —— 即場資金流。</p>
+</div>
+
+<footer>
+  資料:results.csv + races.csv + sectionals_clean.csv;<code>declared_weight</code> = 馬匹體重(lbs,2008 起 99% 覆蓋)。<br>
+  所有因子 as-of / lag 一仗。一體化條件 logit:場內 softmax MLE,SE 由數值 Hessian。走前:每季重新 fit。<br>
+  ROI 95% CI:按場 bootstrap 3,000 次。市場價 = 收市 SP(除 overround,偏樂觀)。腳本:reports/w456.py。<br>
+  此報告只作研究,不構成投注建議。
+</footer>
+</div>
+
+<script>
+(function () {
+  const S = [
+    { k: "14-15", v: 8.9 }, { k: "15-16", v: 8.2 }, { k: "16-17", v: 27.8 },
+    { k: "17-18", v: -50.0 }, { k: "18-19", v: -83.7 }, { k: "19-20", v: -75.8 },
+    { k: "20-21", v: -81.7 }, { k: "21-22", v: 59.1 }, { k: "22-23", v: -89.4 },
+    { k: "23-24", v: 32.7 }, { k: "24-25", v: 80.8 }, { k: "25-26", v: -11.0 },
+  ];
+  const W = 900, H = 340, PL = 44, PR = 14, PT = 16, PB = 40;
+  const iw = W - PL - PR, ih = H - PT - PB;
+  const vmax = 100, vmin = -100;
+  const y = v => PT + (vmax - v) / (vmax - vmin) * ih;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (n, a, t) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (t != null) e.textContent = t; return e; };
+  const svg = document.getElementById("chart");
+  [100, 50, 0, -50, -100].forEach(v => {
+    svg.appendChild(el("line", { x1: PL, x2: W - PR, y1: y(v), y2: y(v), stroke: css("--rule"), "stroke-width": v === 0 ? 1.5 : 1 }));
+    svg.appendChild(el("text", { x: PL - 7, y: y(v) + 3.5, "text-anchor": "end", fill: css("--ink-faint"), "font-family": "IBM Plex Mono, monospace", "font-size": 10 }, (v > 0 ? "+" : "") + v + "%"));
+  });
+  const bw = iw / S.length * 0.6;
+  S.forEach((s, i) => {
+    const xc = PL + (i + 0.5) * (iw / S.length);
+    const top = Math.min(y(0), y(s.v)), hh = Math.abs(y(s.v) - y(0));
+    svg.appendChild(el("rect", { x: xc - bw / 2, y: top, width: bw, height: hh, fill: s.v >= 0 ? css("--turf-bar") : css("--clay-bar"), rx: 1 }));
+    svg.appendChild(el("text", { x: xc, y: s.v >= 0 ? top - 4 : top + hh + 12, "text-anchor": "middle", fill: css("--ink-faint"), "font-family": "IBM Plex Mono, monospace", "font-size": 9 }, (s.v > 0 ? "+" : "") + Math.round(s.v)));
+    svg.appendChild(el("text", { x: xc, y: H - 10, "text-anchor": "middle", fill: css("--ink-soft"), "font-family": "IBM Plex Mono, monospace", "font-size": 9.5 }, s.k));
+  });
+})();
+</script>

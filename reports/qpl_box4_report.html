@@ -1,0 +1,440 @@
+<title>位置Q 打盤回測</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Spectral:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper: #f4f3ee;
+    --surface: #fbfaf6;
+    --surface-2: #efeee7;
+    --ink: #1b201b;
+    --ink-soft: #565c52;
+    --ink-faint: #8b9184;
+    --rule: #dad9cf;
+    --turf: #1f6b4a;
+    --turf-soft: #4a8f6d;
+    --loss: #a4432e;
+    --loss-soft: #c67a63;
+    --amber: #9a6b14;
+    --shadow: 0 1px 2px rgba(27,32,27,.05), 0 8px 30px -18px rgba(27,32,27,.22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14160f;
+      --surface: #1b1e17;
+      --surface-2: #23261e;
+      --ink: #e9eae0;
+      --ink-soft: #a7ad9d;
+      --ink-faint: #767c6c;
+      --rule: #33372c;
+      --turf: #5fb488;
+      --turf-soft: #3f8a63;
+      --loss: #e0806a;
+      --loss-soft: #b0604c;
+      --amber: #d3a54f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 40px -20px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14160f;
+    --surface: #1b1e17;
+    --surface-2: #23261e;
+    --ink: #e9eae0;
+    --ink-soft: #a7ad9d;
+    --ink-faint: #767c6c;
+    --rule: #33372c;
+    --turf: #5fb488;
+    --turf-soft: #3f8a63;
+    --loss: #e0806a;
+    --loss-soft: #b0604c;
+    --amber: #d3a54f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 40px -20px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Spectral", "Songti TC", "Songti SC", "Noto Serif CJK TC", Georgia, serif;
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+  .prose { max-width: 680px; }
+
+  h1, h2, h3 {
+    font-family: "Fraunces", "Songti TC", "Songti SC", Georgia, serif;
+    font-weight: 500;
+    line-height: 1.2;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  h2 {
+    font-size: 1.5rem;
+    margin: 3.4rem 0 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 1.12rem; margin: 2.2rem 0 .6rem; font-weight: 600; }
+  p { margin: 0 0 1.1rem; }
+  strong { font-weight: 600; }
+  a { color: var(--turf); }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .72rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 1.4rem;
+  }
+
+  /* masthead */
+  header.mast { padding: 4.5rem 0 2.2rem; border-bottom: 2px solid var(--ink); }
+  header.mast h1 {
+    font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+    font-weight: 400;
+    margin: 0 0 1rem;
+    letter-spacing: -.01em;
+  }
+  header.mast .dek {
+    font-size: 1.06rem;
+    color: var(--ink-soft);
+    max-width: 620px;
+    margin: 0;
+  }
+  .meta-line {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.6rem;
+    margin-top: 1.8rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .78rem;
+    color: var(--ink-faint);
+  }
+
+  /* verdict band */
+  .verdict {
+    margin: 2.6rem 0 1rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--loss);
+    border-radius: 3px;
+    padding: 1.6rem 1.8rem;
+    box-shadow: var(--shadow);
+  }
+  .verdict .big {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(2.2rem, 7vw, 3.2rem);
+    font-weight: 600;
+    color: var(--loss);
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .verdict .big span { font-size: .9rem; color: var(--ink-faint); font-weight: 400; margin-left: .6rem; }
+  .verdict p { margin: .8rem 0 0; color: var(--ink-soft); font-size: .98rem; }
+
+  .stat-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--rule);
+    border: 1px solid var(--rule); border-radius: 3px; overflow: hidden;
+    margin: 1.4rem 0 2rem;
+  }
+  .stat-row div { background: var(--surface); padding: 1rem 1.1rem; }
+  .stat-row .k { font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .stat-row .v { font-family: "IBM Plex Mono", monospace; font-size: 1.15rem; font-weight: 500; margin-top: .25rem; font-variant-numeric: tabular-nums; }
+
+  /* tables */
+  .tbl-scroll { overflow-x: auto; margin: 1.2rem 0 1.6rem; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .82rem; }
+  caption { text-align: left; font-family: "Fraunces", serif; font-size: 1.12rem; font-weight: 600; margin-bottom: .7rem; color: var(--ink); }
+  th, td { padding: .5rem .7rem; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom: 1px solid var(--ink);
+    font-weight: 500;
+  }
+  tbody tr { border-bottom: 1px solid var(--rule); }
+  tbody tr:last-child { border-bottom: 1px solid var(--rule); }
+  tbody tr.total { border-top: 2px solid var(--ink); border-bottom: none; font-weight: 600; }
+  tbody tr.total td { color: var(--ink); }
+  td.neg { color: var(--loss); }
+  td.near { color: var(--amber); }
+  .ci { color: var(--ink-faint); font-size: .92em; }
+
+  /* chart */
+  figure { margin: 1.6rem 0 1.2rem; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+    padding: 1.4rem 1.2rem .8rem; box-shadow: var(--shadow);
+  }
+  .chart-card svg { display: block; width: 100%; height: auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 1.1rem; margin: .7rem .3rem 0; font-family: "IBM Plex Mono", monospace; font-size: .74rem; color: var(--ink-soft); }
+  .legend i { display: inline-block; width: 22px; height: 0; border-top-width: 2px; border-top-style: solid; vertical-align: middle; margin-right: .45rem; }
+  figcaption { font-family: "IBM Plex Mono", monospace; font-size: .74rem; color: var(--ink-faint); margin-top: .8rem; padding: 0 .3rem; line-height: 1.5; }
+
+  .note {
+    background: var(--surface-2); border: 1px solid var(--rule); border-radius: 3px;
+    padding: 1.1rem 1.3rem; margin: 1.6rem 0; font-size: .94rem; color: var(--ink-soft);
+  }
+  .note b { color: var(--ink); }
+
+  ul.tight { margin: 0 0 1.2rem; padding-left: 1.1rem; }
+  ul.tight li { margin: .35rem 0; }
+
+  footer {
+    margin: 4rem 0 3rem; padding-top: 1.4rem; border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace; font-size: .74rem; color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16.5px; }
+    .wrap { padding: 0 18px; }
+    header.mast { padding: 3rem 0 1.8rem; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .draw { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: draw 1.6s ease-out forwards; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">HKJC 回測 · 誠實評估</p>
+  <h1>位置Q 打盤,長遠贏唔贏得到?</h1>
+  <p class="dek">用「馬匹狀態 + 騎師配合」模型,每場揀 4 隻打盤買位置Q(6 注),
+  由 2021 年頭行到 2026 年 7 月。以下係逐季、逐場地、逐場面嘅完整成績單。</p>
+  <div class="meta-line">
+    <span>樣本 4,701 場</span>
+    <span>2021-01 → 2026-07</span>
+    <span>平注 HK$10 / 注</span>
+    <span>只計 ≥7 隻馬嘅場</span>
+  </div>
+</header>
+
+<div class="verdict">
+  <div class="big">−13.9%<span>整體 ROI</span></div>
+  <p>95% 信賴區間 [−16.6%, −11.1%]。turnover HK$282,060,淨蝕 <strong>HK$39,171</strong>。
+  比純買 WIN(−21%)好,亦贏返個抽水幾個百分點 —— 但<strong>冇一季係正數</strong>,
+  62 個月得 5 個月贏錢,權益曲線一路向下。呢個係「輸得慢啲」,唔係贏錢策略。</p>
+</div>
+
+<div class="stat-row">
+  <div><div class="k">入樽率(≥1 對中)</div><div class="v">68.1%</div></div>
+  <div><div class="k">平均每場中幾多對</div><div class="v">1.03</div></div>
+  <div><div class="k">每場成本</div><div class="v">HK$60</div></div>
+  <div><div class="k">賺錢月份</div><div class="v">5 / 62</div></div>
+</div>
+
+<h2>策略點行</h2>
+<div class="prose">
+<p>每場 <strong>≥7 隻馬</strong>嘅賽事:</p>
+<ul class="tight">
+  <li>用模型計每隻馬嘅<strong>入位機率</strong>(基本面模型 35% + 市場賠率隱含 65% 混合),揀機率最高嘅 <strong>4 隻</strong>。</li>
+  <li>4 隻馬砌晒 <strong>6 對</strong>,每對落 HK$10 位置Q(即係「打盤」/ banker box)。</li>
+  <li>一對之中<strong>兩隻都跑入前三名</strong>就中,收番嗰對嘅位置Q派彩。</li>
+</ul>
+<p>模型只用馬匹往績、近績、休息日數、出賽階段、檔位、負重、班次、路程變化,
+加騎師 / 練馬師 / 騎練拍檔 / <strong>騎師 × 呢隻馬</strong> 嘅往績上名率。
+訓練期 2008–2020,測試期 2021 起,冇 look-ahead。</p>
+</div>
+
+<h2>權益曲線</h2>
+<figure>
+  <div class="chart-card">
+    <svg viewBox="0 0 900 360" role="img" aria-label="累積盈虧曲線,三條線(全部、沙田、快活谷)由 2021 年到 2026 年一路向下,終點介乎 −HK$18,000 至 −HK$39,000">
+      <g id="chart"></g>
+    </svg>
+    <div class="legend">
+      <span><i style="border-color:var(--loss)"></i>全部場</span>
+      <span><i style="border-color:var(--turf)"></i>沙田 ST</span>
+      <span><i style="border-color:var(--ink-faint)"></i>快活谷 HV</span>
+    </div>
+  </div>
+  <figcaption>累積盈虧(HK$),平注每場 HK$60。三條線都係單調向下 —— 冇一段係持續回升。
+  沙田斜率明顯平過快活谷。</figcaption>
+</figure>
+
+<h2>逐季成績</h2>
+<div class="tbl-scroll">
+<table>
+  <caption>Box top-4 · 按馬季</caption>
+  <thead><tr><th>馬季</th><th>場數</th><th>入樽率</th><th>ROI</th><th>95% CI</th><th>盈虧 HK$</th></tr></thead>
+  <tbody>
+    <tr><td>2020-21 <span class="ci">(半季)</span></td><td>527</td><td>69.3%</td><td class="near">−8.6%</td><td class="ci">[−17.0, −0.3]</td><td class="neg">−2,711</td></tr>
+    <tr><td>2021-22</td><td>831</td><td>67.1%</td><td class="neg">−13.7%</td><td class="ci">[−20.2, −7.1]</td><td class="neg">−6,831</td></tr>
+    <tr><td>2022-23</td><td>823</td><td>66.7%</td><td class="neg">−17.1%</td><td class="ci">[−23.6, −10.2]</td><td class="neg">−8,463</td></tr>
+    <tr><td>2023-24</td><td>817</td><td>68.9%</td><td class="neg">−10.9%</td><td class="ci">[−17.5, −4.0]</td><td class="neg">−5,364</td></tr>
+    <tr><td>2024-25</td><td>843</td><td>68.6%</td><td class="neg">−16.1%</td><td class="ci">[−22.6, −9.0]</td><td class="neg">−8,154</td></tr>
+    <tr><td>2025-26</td><td>860</td><td>68.5%</td><td class="neg">−14.8%</td><td class="ci">[−21.2, −8.2]</td><td class="neg">−7,647</td></tr>
+    <tr class="total"><td>整體</td><td>4,701</td><td>68.1%</td><td>−13.9%</td><td class="ci">[−16.6, −11.1]</td><td>−39,171</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="prose" style="font-size:.95rem;color:var(--ink-soft)">
+每季 ROI 由 −9% 到 −17% 之間跳,冇明顯趨勢,但每季信賴區間上限都摸唔到 0 以上
+(2020-21 半季 −0.3% 係得半年、樣本細)。即係話「輸幾多」有波動,「會唔會贏」冇懸念。</p>
+
+<h2>逐場地成績</h2>
+<div class="tbl-scroll">
+<table>
+  <caption>Box top-4 · 沙田 vs 快活谷</caption>
+  <thead><tr><th>場地</th><th>場數</th><th>入樽率</th><th>ROI</th><th>95% CI</th><th>盈虧 HK$</th></tr></thead>
+  <tbody>
+    <tr><td>沙田 ST</td><td>2,803</td><td>68.1%</td><td class="neg">−11.2%</td><td class="ci">[−14.9, −7.4]</td><td class="neg">−18,777</td></tr>
+    <tr><td>快活谷 HV</td><td>1,898</td><td>68.1%</td><td class="neg">−17.9%</td><td class="ci">[−21.9, −13.9]</td><td class="neg">−20,394</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="prose"><strong>沙田明顯好過快活谷</strong>(−11.2% vs −17.9%),而且信賴區間唔重疊 ——
+呢個差異係穩陣嘅。快活谷路程短、彎急、爆冷多,4 隻大熱馬入位嘅穩定性低啲。</p>
+
+<div class="tbl-scroll">
+<table>
+  <caption>Box top-4 · 逐季 × 場地</caption>
+  <thead><tr><th>馬季 / 場地</th><th>場數</th><th>ROI</th><th>95% CI</th></tr></thead>
+  <tbody>
+    <tr><td>2020-21 · ST</td><td>311</td><td class="near">−7.9%</td><td class="ci">[−19.9, +3.8]</td></tr>
+    <tr><td>2020-21 · HV</td><td>216</td><td class="near">−9.6%</td><td class="ci">[−22.2, +2.7]</td></tr>
+    <tr><td>2021-22 · ST</td><td>485</td><td class="neg">−11.7%</td><td class="ci">[−20.9, −1.9]</td></tr>
+    <tr><td>2021-22 · HV</td><td>346</td><td class="neg">−16.5%</td><td class="ci">[−26.2, −7.2]</td></tr>
+    <tr><td>2022-23 · ST</td><td>482</td><td class="neg">−13.0%</td><td class="ci">[−22.1, −3.1]</td></tr>
+    <tr><td>2022-23 · HV</td><td>341</td><td class="neg">−23.0%</td><td class="ci">[−31.9, −14.0]</td></tr>
+    <tr><td>2023-24 · ST</td><td>469</td><td class="near">−7.1%</td><td class="ci">[−16.0, +2.4]</td></tr>
+    <tr><td>2023-24 · HV</td><td>348</td><td class="neg">−16.2%</td><td class="ci">[−26.2, −6.3]</td></tr>
+    <tr><td>2024-25 · ST</td><td>518</td><td class="neg">−11.1%</td><td class="ci">[−19.9, −1.4]</td></tr>
+    <tr><td>2024-25 · HV</td><td>325</td><td class="neg">−24.1%</td><td class="ci">[−32.8, −14.1]</td></tr>
+    <tr><td>2025-26 · ST</td><td>538</td><td class="neg">−14.6%</td><td class="ci">[−22.3, −6.3]</td></tr>
+    <tr><td>2025-26 · HV</td><td>322</td><td class="neg">−15.2%</td><td class="ci">[−24.4, −5.5]</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="prose" style="font-size:.95rem;color:var(--ink-soft)">
+沙田喺 6 季入面有 5 季贏過快活谷。快活谷最差嘅兩季(2022-23、2024-25)都跌穿 −23%。</p>
+
+<h2>逐場面(出馬數)</h2>
+<div class="tbl-scroll">
+<table>
+  <caption>Box top-4 · 按出馬數</caption>
+  <thead><tr><th>出馬數</th><th>場數</th><th>入樽率</th><th>ROI</th><th>95% CI</th></tr></thead>
+  <tbody>
+    <tr><td>7</td><td>71</td><td>94.4%</td><td class="near">−7.1%</td><td class="ci">[−23.8, +9.3]</td></tr>
+    <tr><td>8</td><td>102</td><td>85.3%</td><td class="near">−4.8%</td><td class="ci">[−22.8, +16.1]</td></tr>
+    <tr><td>9</td><td>160</td><td>81.9%</td><td class="near">−3.5%</td><td class="ci">[−19.7, +13.8]</td></tr>
+    <tr><td>10</td><td>251</td><td>74.5%</td><td class="neg">−10.1%</td><td class="ci">[−23.6, +4.8]</td></tr>
+    <tr><td>11</td><td>451</td><td>74.3%</td><td class="neg">−14.6%</td><td class="ci">[−22.4, −6.5]</td></tr>
+    <tr><td>12</td><td>1,996</td><td>65.9%</td><td class="neg">−16.9%</td><td class="ci">[−21.2, −12.6]</td></tr>
+    <tr><td>13</td><td>289</td><td>67.8%</td><td class="near">−1.1%</td><td class="ci">[−13.9, +11.9]</td></tr>
+    <tr><td>14</td><td>1,381</td><td>64.0%</td><td class="neg">−14.9%</td><td class="ci">[−20.0, −9.6]</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="prose">細場面(7–9 隻)ROI 明顯好(−3% 到 −7%),但<strong>樣本得幾十到百幾場,信賴區間跨過 0</strong> ——
+睇落似機會多過真本事。大場面(12、14 隻,佔咗成 72% 樣本)穩定喺 −15% 到 −17%,
+呢個先係策略嘅真實水平。場面 13 嘅 −1.1% 同樣係細樣本雜訊。</p>
+
+<h2>派彩數據嘅可信度</h2>
+<div class="note">
+<p><b>2024-09 之前冇真實位置Q派彩。</b> 馬會派彩表齊全嘅只有 2024-09-08 起。
+2021–2024 嘅位置Q派彩係用一個模型估返(輸入:兩隻馬賠率 + 出馬數,中位誤差 ~11%)。</p>
+<p style="margin-bottom:0"><b>只計有真實派彩嘅子集(2024-09 → 2026-07,1,703 場):ROI −15.5%</b>
+[95% CI −19.9%, −10.9%]。比全期 −13.9% 差 ~1.6pp —— 即係估算派彩<b>偏樂觀咗少少</b>,
+真實水平應該貼近 <b>−15%</b>。</p>
+</div>
+
+<h2>打盤揀幾多隻好?</h2>
+<div class="tbl-scroll">
+<table>
+  <caption>盤大細比較(2021 起全期)</caption>
+  <thead><tr><th>盤</th><th>注數/場</th><th>成本/場</th><th>ROI</th><th>真派彩子集 ROI</th><th>入樽率</th></tr></thead>
+  <tbody>
+    <tr><td>Top-3(3 注)</td><td>3</td><td>HK$30</td><td class="neg">−14.3%</td><td class="neg">−15.2%</td><td>49.9%</td></tr>
+    <tr><td>Top-4(6 注)</td><td>6</td><td>HK$60</td><td class="neg">−13.9%</td><td class="neg">−15.5%</td><td>68.1%</td></tr>
+    <tr><td>Top-5(10 注)</td><td>10</td><td>HK$100</td><td class="neg">−14.3%</td><td class="neg">−17.2%</td><td>80.8%</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="prose">三個盤大細嘅 ROI 差唔多(−14% 上下),<strong>Top-4 略勝</strong>,而且 Top-5 喺真派彩期跌到 −17.2%
+(攤得太散,買埋啲入位機會低嘅組合)。Top-3 慳成本但入樽率得五成、波幅大。
+<strong>Top-4 係最平衡嘅選擇</strong>。</p>
+
+<h2>要點總結</h2>
+<div class="prose">
+<ul class="tight">
+  <li><strong>整體 −13.9%(真實水平 ~−15%)</strong>:贏返抽水 3–4pp,但仍然係穩定慢輸。</li>
+  <li><strong>只買沙田</strong>:ROI 收窄到 −11.2%,而且比快活谷穩。快活谷應該避。</li>
+  <li><strong>細場面數字好但唔信得</strong>:樣本太細,CI 跨 0。</li>
+  <li><strong>Top-4 打盤</strong>優於 Top-3 / Top-5。</li>
+  <li><strong>冇一季、冇一個場地 × 季、冇一個大樣本場面係正 ROI。</strong> 呢個結論同成個 project
+  由 M2 到 M5 一致:市場已經有效率,基本面模型贏唔到收市盤。</li>
+</ul>
+<p>想再壓低虧損,方向係:① 用 <code>sectionals</code>(2008 起 67 萬行,未用盡)砌自家速度指數;
+② 由今日起行 M7 即時賠率 logger,儲夠一兩季再試「賠率走勢」訊號 —— 呢個先有機會摸到正數。</p>
+</div>
+
+<footer>
+  方法:LightGBM 二元分類(win / top-3),within-race softmax 正規化,模型 35% × 市場 65% 對數混合。<br>
+  派彩:WIN 用 win_odds×10 還原;位置Q 2024-09 前用 LightGBM 估(賠率 + 場面),之後用馬會真實派彩表。<br>
+  信賴區間:按場 bootstrap 重抽 2,000 次。訓練 2008-04 → 2020-12,測試 2021-01 → 2026-07。<br>
+  平注 HK$10 / 注,未計注碼粒度(HK$10 最低)同池影響。此報告只作研究,不構成投注建議。
+</footer>
+
+</div>
+
+<script>
+(function () {
+  const ALL = [{"date":"2021-01","c":254},{"date":"2021-02","c":25.7},{"date":"2021-03","c":-486.8},{"date":"2021-04","c":-1181.9},{"date":"2021-05","c":-2773.9},{"date":"2021-06","c":-2562.7},{"date":"2021-07","c":-2711.1},{"date":"2021-09","c":-3307.3},{"date":"2021-10","c":-4019.7},{"date":"2021-11","c":-4554.9},{"date":"2021-12","c":-4835},{"date":"2022-01","c":-5688.1},{"date":"2022-02","c":-6108.3},{"date":"2022-03","c":-6391.1},{"date":"2022-04","c":-7481.4},{"date":"2022-05","c":-7933.4},{"date":"2022-06","c":-8444.4},{"date":"2022-07","c":-9542.6},{"date":"2022-09","c":-10592.6},{"date":"2022-10","c":-11831.1},{"date":"2022-11","c":-12206.8},{"date":"2022-12","c":-12817.8},{"date":"2023-01","c":-14532.2},{"date":"2023-02","c":-14953.2},{"date":"2023-03","c":-15256.4},{"date":"2023-04","c":-16023.8},{"date":"2023-05","c":-17781.6},{"date":"2023-06","c":-17739.6},{"date":"2023-07","c":-18005.6},{"date":"2023-09","c":-18309.3},{"date":"2023-10","c":-18979.7},{"date":"2023-11","c":-19995.2},{"date":"2023-12","c":-20736.2},{"date":"2024-01","c":-20039},{"date":"2024-02","c":-20957.7},{"date":"2024-03","c":-21443.6},{"date":"2024-04","c":-21823.1},{"date":"2024-05","c":-22639.8},{"date":"2024-06","c":-22901.7},{"date":"2024-07","c":-23369.5},{"date":"2024-09","c":-24209},{"date":"2024-10","c":-24445.5},{"date":"2024-11","c":-24676},{"date":"2024-12","c":-26212},{"date":"2025-01","c":-26971.5},{"date":"2025-02","c":-27262},{"date":"2025-03","c":-28075.5},{"date":"2025-04","c":-28893},{"date":"2025-05","c":-30383},{"date":"2025-06","c":-31008},{"date":"2025-07","c":-31524},{"date":"2025-09","c":-31836},{"date":"2025-10","c":-32560.5},{"date":"2025-11","c":-33537},{"date":"2025-12","c":-35029},{"date":"2026-01","c":-34885.1},{"date":"2026-02","c":-35924.6},{"date":"2026-03","c":-36299.1},{"date":"2026-04","c":-36873.6},{"date":"2026-05","c":-37701.1},{"date":"2026-06","c":-38669.1},{"date":"2026-07","c":-39171.1}];
+  const ST = [{"date":"2021-01","c":-68.6},{"date":"2021-05","c":-1562.7},{"date":"2021-09","c":-1960.7},{"date":"2021-12","c":-3807.2},{"date":"2022-03","c":-3846},{"date":"2022-07","c":-4867.3},{"date":"2022-10","c":-5853.9},{"date":"2023-01","c":-7317.4},{"date":"2023-05","c":-9001.8},{"date":"2023-09","c":-8613.3},{"date":"2023-12","c":-9405.3},{"date":"2024-03","c":-9728.8},{"date":"2024-07","c":-10599.8},{"date":"2024-11","c":-10853.8},{"date":"2025-02","c":-12163.3},{"date":"2025-06","c":-13937.3},{"date":"2025-09","c":-14137.8},{"date":"2025-12","c":-16930.8},{"date":"2026-03","c":-17733.4},{"date":"2026-07","c":-18777.4}];
+  const HV = [{"date":"2021-01","c":322.6},{"date":"2021-05","c":-1211.1},{"date":"2021-09","c":-1346.6},{"date":"2021-12","c":-1027.8},{"date":"2022-03","c":-2545.2},{"date":"2022-07","c":-4675.3},{"date":"2022-10","c":-5977.1},{"date":"2023-01","c":-7214.8},{"date":"2023-05","c":-8779.8},{"date":"2023-09","c":-9695.9},{"date":"2023-12","c":-11330.9},{"date":"2024-03","c":-11714.8},{"date":"2024-07","c":-12769.7},{"date":"2024-11","c":-13822.2},{"date":"2025-02","c":-15098.7},{"date":"2025-06","c":-17070.7},{"date":"2025-09","c":-17698.2},{"date":"2025-12","c":-18098.2},{"date":"2026-03","c":-18565.7},{"date":"2026-07","c":-20393.7}];
+
+  const W = 900, H = 360, PL = 62, PR = 14, PT = 16, PB = 34;
+  const t0 = new Date("2021-01-01").getTime();
+  const t1 = new Date("2026-07-15").getTime();
+  const yMin = -40000, yMax = 2000;
+  const x = d => PL + (new Date(d + "-15").getTime() - t0) / (t1 - t0) * (W - PL - PR);
+  const y = v => PT + (yMax - v) / (yMax - yMin) * (H - PT - PB);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || n;
+
+  const g = document.getElementById("chart");
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+
+  // gridlines + y labels
+  [0, -10000, -20000, -30000, -40000].forEach(v => {
+    g.appendChild(mk("line", { x1: PL, x2: W - PR, y1: y(v), y2: y(v), stroke: css("--rule"), "stroke-width": 1 }));
+    const lb = mk("text", { x: PL - 8, y: y(v) + 3.5, "text-anchor": "end", fill: css("--ink-faint"),
+      "font-family": "IBM Plex Mono, monospace", "font-size": 10.5 });
+    lb.textContent = v === 0 ? "0" : (v / 1000) + "k";
+    g.appendChild(lb);
+  });
+  // zero line emphasis
+  g.appendChild(mk("line", { x1: PL, x2: W - PR, y1: y(0), y2: y(0), stroke: css("--ink-faint"), "stroke-width": 1, "stroke-dasharray": "2 3" }));
+
+  // year ticks
+  ["2021","2022","2023","2024","2025","2026"].forEach(yr => {
+    const xx = x(yr + "-01");
+    const lb = mk("text", { x: xx, y: H - 12, "text-anchor": "middle", fill: css("--ink-faint"),
+      "font-family": "IBM Plex Mono, monospace", "font-size": 10.5 });
+    lb.textContent = yr;
+    g.appendChild(lb);
+  });
+
+  const path = (data, color, wgt, cls) => {
+    const dstr = data.map((p, i) => (i ? "L" : "M") + x(p.date).toFixed(1) + " " + y(p.c).toFixed(1)).join(" ");
+    g.appendChild(mk("path", { d: dstr, fill: "none", stroke: color, "stroke-width": wgt,
+      "stroke-linejoin": "round", "stroke-linecap": "round", class: cls }));
+    const last = data[data.length - 1];
+    g.appendChild(mk("circle", { cx: x(last.date), cy: y(last.c), r: wgt + 1.2, fill: color }));
+  };
+  path(HV, css("--ink-faint"), 1.8, "draw");
+  path(ST, css("--turf"), 1.8, "draw");
+  path(ALL, css("--loss"), 2.4, "draw");
+})();
+</script>
