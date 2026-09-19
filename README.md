@@ -55,6 +55,19 @@ the upstream README.
 - **macOS race-day automation** (`scripts/`): a `launchd` plist + installer that runs the
   live-odds logger over a meeting window (with `caffeinate` so idle sleep can't stall polls),
   plus `todays_meeting.py`. Upstream shipped only the Windows Task Scheduler script.
+- **Draw-bias study** (`reports/draw_bias.py`, null result): strictly as-of, shrunk win / place
+  share of each barrier per (venue × surface × distance), with the closing-line market as a
+  control. The raw bias is real and matches racecourse lore (Sha Tin 1000m: inside draws −10–18%,
+  outside +13–22% vs field-size expectation) but once the market is controlled for it carries
+  no residual information (`draw_win_bias` t = 0.8, `draw_place_bias` t = 0.5; baseline
+  `draw_rel` itself only t = 2.4). Walk-forward EV-gated betting finds ~200 bets in 14 seasons
+  with a CI spanning −39% to +23%. Not wired into the pipeline — three t < 1 columns would only
+  add noise. Third honest null after NLP and the residual group.
+- **Barrier-trial backfill** (`hkjc scrape-trials --since`): the `btresult` landing page only
+  lists ~one season, but HKJC still serves per-date trial pages back to the 2010-11 season, so
+  `--since` earlier than the listed span now enumerates the gap day by day (trials move around
+  holidays) and records empty days in the manifest without writing files. Groundwork for a
+  `trial_signal` feature group on ~15 seasons instead of one.
 - **Research scripts** (`research/`, `reports/`): the exploration behind the residual group —
   WIN / PLACE / quinella backtests (Harville, EV-ratio, expanding calibration), LightGBM
   ablations and regularisation sweeps, calibration checks, data-quality diagnostics. Kept for

@@ -38,3 +38,19 @@ def test_parse_barrier_trials() -> None:
 def test_trials_cover_multiple_batches() -> None:
     runs = parse_barrier_trials(HTML, date(2026, 6, 5))
     assert {r.batch for r in runs} >= {1, 2, 3}
+
+
+def test_trial_backfill_dates_fill_the_gap_before_the_listed_span() -> None:
+    from hkjc.data.pipeline import trial_backfill_dates
+
+    listed = [date(2025, 6, 19), date(2025, 6, 24)]
+    gap = trial_backfill_dates(date(2025, 6, 10), listed, today=date(2026, 9, 19))
+    assert gap[0] == date(2025, 6, 10)
+    assert gap[-1] == date(2025, 6, 18)  # stops the day before the earliest listed date
+    assert len(gap) == 9
+    # since inside the listed span -> nothing to backfill
+    assert trial_backfill_dates(date(2025, 6, 20), listed, today=date(2026, 9, 19)) == []
+    # no listing at all -> probe through today
+    assert trial_backfill_dates(date(2026, 9, 17), [], today=date(2026, 9, 19))[-1] == date(
+        2026, 9, 19
+    )

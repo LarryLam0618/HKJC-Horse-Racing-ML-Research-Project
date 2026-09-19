@@ -178,7 +178,13 @@ def scrape_weather(
 @app.command(name="scrape-trials")
 def scrape_trials(
     limit: Annotated[int | None, typer.Option(help="Only the newest N trial dates.")] = None,
-    since: Annotated[str | None, typer.Option(help="Only trials on/after YYYY-MM-DD.")] = None,
+    since: Annotated[
+        str | None,
+        typer.Option(
+            help="Only trials on/after YYYY-MM-DD; earlier than the landing page's span "
+            "backfills day-by-day (HKJC serves old pages back to ~2010-11)."
+        ),
+    ] = None,
 ) -> None:
     """Scrape barrier-trial results, idempotently (M1)."""
     from hkjc.data import pipeline

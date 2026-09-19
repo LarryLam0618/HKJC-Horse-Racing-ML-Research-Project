@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import duckdb
@@ -403,6 +403,20 @@ def list_trial_dates(cfg: AppConfig | None = None, fetcher: Fetcher | None = Non
     return sorted(parse_meeting_dates(landing.text))
 
 
+def trial_backfill_dates(since: date, listed: list[date], today: date) -> list[date]:
+    """Dates to probe for a historical trial backfill: every calendar day from ``since`` up to
+    the day before the earliest date the landing page lists (or ``today`` if it lists none).
+
+    The ``btresult`` landing dropdown only spans ~the current season, but HKJC still serves the
+    per-date page for older trials (verified back to the 2010-11 season), so a backfill has to
+    enumerate days itself. Trials run ~Tue/Thu/Fri but shift around holidays, so every day is
+    probed -- an empty day is a cheap 200 with zero rows and is recorded in the manifest.
+    """
+    end = min(listed) if listed else today + timedelta(days=1)
+    n = (end - since).days
+    return [since + timedelta(days=i) for i in range(max(n, 0))]
+
+
 def scrape_trials(
     *,
     cfg: AppConfig | None = None,
@@ -411,7 +425,11 @@ def scrape_trials(
     force: bool = False,
     on_date: Callable[[date, int], None] | None = None,
 ) -> dict[str, int]:
-    """Scrape barrier-trial results per date (idempotent; past dates are frozen)."""
+    """Scrape barrier-trial results per date (idempotent; past dates are frozen).
+
+    ``since`` earlier than the landing page's span triggers a day-by-day backfill of the gap
+    (see :func:`trial_backfill_dates`); dates the page lists are scraped as before.
+    """
     cfg = cfg or get_config()
     base = cfg.sources.hkjc_base_url
     fetcher = Fetcher(
@@ -419,7 +437,8 @@ def scrape_trials(
     )
     dates = list_trial_dates(cfg, fetcher)
     if since is not None:
-        dates = [d for d in dates if d >= since]
+        gap = trial_backfill_dates(since, dates, now_hkt().date())
+        dates = sorted({*gap, *[d for d in dates if d >= since]})
     if limit is not None:
         dates = dates[-limit:]
 
@@ -431,7 +450,9 @@ def scrape_trials(
             if day < now_hkt().date() and not force and manifest.has(url):
                 continue
             result = fetcher.fetch(url)
-            n_rows = write_trials(cfg.paths.raw_dir, day, parse_barrier_trials(result.text, day))
+            runs = parse_barrier_trials(result.text, day)
+            # Empty probe days (no trials held) are recorded in the manifest but write no file.
+            n_rows = write_trials(cfg.paths.raw_dir, day, runs) if runs else 0
             manifest.record(url, "btresult", result.content_hash, result.status, n_rows)
             total_rows += n_rows
             scraped += 1
