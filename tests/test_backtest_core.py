@@ -6,6 +6,7 @@ import numpy as np
 
 from hkjc.backtest import metrics
 from hkjc.backtest.bootstrap import bootstrap_roi_ci
+from hkjc.backtest.engine import _artifact_name
 from hkjc.backtest.walk_forward import iter_season_splits
 from hkjc.models.base import group_codes
 
@@ -55,3 +56,10 @@ def test_bootstrap_ci_brackets_point() -> None:
     ci = bootstrap_roi_ci(profit, stake, n_iter=500, seed=1)
     assert ci.lo <= ci.roi <= ci.hi
     assert ci.n_races == 500
+
+
+def test_tagged_backtest_artifacts_do_not_clobber_baseline() -> None:
+    # `hkjc backtest --residual` must write next to, not over, the baseline snapshot the API serves.
+    assert _artifact_name("result", None, ".json") == "result.json"
+    assert _artifact_name("result", "residual", ".json") == "result_residual.json"
+    assert _artifact_name("calibration_win", "residual", ".png") == "calibration_win_residual.png"

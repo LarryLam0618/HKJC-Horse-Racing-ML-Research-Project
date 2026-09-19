@@ -22,6 +22,7 @@ class CardRunner(BaseModel):
     status: str | None
     draw: int | None
     handicap_weight: int | None
+    current_weight: int | None  # body weight (lb) -> declared_weight in the feature spine
     current_rating: int | None
     intl_rating: int | None
     gear: str | None

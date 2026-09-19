@@ -469,7 +469,8 @@ three config groups:
 
 - `pace_sectional` (`_add_pace` + `_pace_metrics`, from the sectional archive #7):
   `late_rel3` / `pace_close3` / `led_held3` / `hidden_hp3`. Race-level **early-pace pressure** =
-  the leader's first-section time z-scored within (distance, n-sections); `late_rel` = last
+  the leader's first-section time z-scored within (distance, n-sections) with an **as-of expanding**
+  mean/std (races up to and including this one; neutral 0 when <2 comparables); `late_rel` = last
   section vs field median; `pace_close` amplifies closing done into a hot pace. **Lagged like the
   NLP group** (a sectional describes the run it belongs to) -- joined per run, then shifted one
   run and rolled over the horse's last 4 runs (mean for the figures, sum for the flags).
@@ -477,9 +478,14 @@ three config groups:
   from `declared_weight` (body weight, published pre-race -> the current value is legal; only the
   baselines are prior). `bw_up_fresh` = >8lb heavier **and** >45 days off.
 - `class_deploy` (`_add_class_drop`): `is_drop` (this race's class vs the horse's previous, via
-  `_class_ord`: Group 0.5 / Class N / Griffin 4.5) x `drop_x_trsr`, the trainer's as-of strike
+  `_class_ord`: Group 0.5 / Class N / Griffin 4.5; null/unknown class -> null, so the M7 card,
+  which carries no race class, cannot fabricate a drop) x `drop_x_trsr`, the trainer's as-of strike
   rate **on their earlier class-drop runners only**, keyed by the canonical connection id (not
   the raw name as in w456).
+
+  **Race-day parity:** the card's `currentWeight` is carried into the forward spine as
+  `declared_weight` so `weight_dynamics` computes live; `hkjc backtest --residual` persists to
+  `result_residual.json` / `calibration_win_residual.png` so it never overwrites the baseline.
 
 `feature_version` -> **v3** (rebuild required). The group is kept out of `BASELINE_FEATURES`;
 `numeric_design_features(include_nlp, include_residual)` -> `build_design` -> `load_model_data`

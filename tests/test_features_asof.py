@@ -127,10 +127,40 @@ def test_class_drop_and_trainer_rate_are_strictly_prior() -> None:
 
 def test_class_ordinal_ranks_company() -> None:
     classes = pl.DataFrame(
-        {"race_class": ["Class 1", "Class 4 (Restricted)", "Group One", "Griffin Race", None]}
+        {
+            "race_class": [
+                "Class 1",
+                "Class 4 (Restricted)",
+                "Group One",
+                "GROUP-3",
+                "Griffin Race",
+                "4 Year Olds",  # age/condition race: company unknown, not "Class 3"
+                None,  # the M7 card carries no race class
+            ]
+        }
     )
     got = classes.select(_class_ord(pl.col("race_class")))["race_class"].to_list()
-    assert got == [1.0, 4.0, 0.5, 4.5, 3.0]
+    assert got == [1.0, 4.0, 0.5, 0.5, 4.5, None, None]
+
+
+def test_class_drop_is_unknown_when_card_has_no_class() -> None:
+    # Race-day rows carry race_class=None. A null class must not be read as a middle class:
+    # an ex-Class-2 horse is *not* a drop and an ex-Class-5 horse is *not* a rise.
+    runs = pl.DataFrame(
+        {
+            "_row": [0, 1, 2, 3],
+            "horse_id": ["A", "A", "B", "B"],
+            "race_date": [date(2024, 1, 1), date(2024, 2, 1)] * 2,
+            "race_no": [1, 1, 2, 2],
+            "race_class": ["Class 2", None, "Class 5", None],
+            "trainer_name": ["T"] * 4,
+            "trainer_code": [None] * 4,
+            "won": [0, 0, 0, 0],
+        }
+    )
+    out = _add_class_drop(runs).sort("_row")
+    assert out["is_drop"].to_list() == [0, 0, 0, 0]
+    assert out["drop_x_trsr"].to_list() == [0.0, 0.0, 0.0, 0.0]
 
 
 def _pace_runs() -> pl.DataFrame:
@@ -166,3 +196,63 @@ def test_pace_aggregates_are_lagged(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["pace_close3"].to_list() == [None, 0.4, pytest.approx(0.6)]
     assert out["led_held3"].to_list() == [None, 1.0, 1.0]
     assert out["hidden_hp3"].to_list() == [None, 0.0, 1.0]
+
+
+def _sectionals(n_races: int) -> pl.DataFrame:
+    # n_races races at the same distance, one runner each, two sections; the leader's first
+    # section gets progressively faster so the expanding z-score is non-trivial.
+    rows = []
+    for i in range(n_races):
+        for sec, t in ((1, 24.0 - i), (2, 23.0)):
+            rows.append(
+                {
+                    "race_date": date(2020, 1, 1 + i),
+                    "venue": "ST",
+                    "race_no": 1,
+                    "saddle": 1,
+                    "finishing_order": 1,
+                    "section_index": sec,
+                    "running_position": 1,
+                    "section_time_s": t,
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def _fake_read_raw(sectionals: pl.DataFrame) -> object:
+    races = (
+        sectionals.select("race_date", "venue", "race_no")
+        .unique()
+        .with_columns(distance_m=pl.lit(1200))
+    )
+    tables = {"sectionals": sectionals, "races": races}
+
+    def _read(_cfg: object, table: str, columns: list[str]) -> pl.DataFrame:
+        return tables[table].select([c for c in columns if c in tables[table].columns])
+
+    return _read
+
+
+def test_pace_pressure_is_as_of(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The z-score for a race must only depend on races run up to and including it: adding
+    # later races must not change an earlier race's pace_press (repo as-of rule).
+    monkeypatch.setattr(build, "_read_raw", _fake_read_raw(_sectionals(3)))
+    early = build._pace_metrics(cfg=None).sort("race_date")  # type: ignore[arg-type]
+    monkeypatch.setattr(build, "_read_raw", _fake_read_raw(_sectionals(6)))
+    late = build._pace_metrics(cfg=None).sort("race_date")  # type: ignore[arg-type]
+    # pace_close = late_rel * (1 + clip(pace_press)); late_rel is 0 for a lone runner, so
+    # compare the flags' driver via led_held_hp, which needs pace_press > 0.4, and the row count.
+    assert early.height == 3 and late.height == 6
+    for col in ("late_rel", "pace_close", "led_held_hp", "hidden_hp"):
+        assert early[col].to_list() == late[col].to_list()[:3], col
+
+
+def test_pace_pressure_neutral_when_undefined(monkeypatch: pytest.MonkeyPatch) -> None:
+    # With a single comparable race there is no spread to standardise against: the pressure
+    # is the neutral 0, so pace_close == late_rel and the flags cannot fire (not null).
+    monkeypatch.setattr(build, "_read_raw", _fake_read_raw(_sectionals(1)))
+    out = build._pace_metrics(cfg=None)  # type: ignore[arg-type]
+    assert out.height == 1
+    assert out["pace_close"].to_list() == out["late_rel"].to_list()
+    assert out["led_held_hp"].to_list() == [0.0]
+    assert out["hidden_hp"].to_list() == [0.0]

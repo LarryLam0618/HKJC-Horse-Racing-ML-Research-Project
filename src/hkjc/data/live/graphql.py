@@ -149,6 +149,7 @@ def _runner(r: dict[str, Any]) -> CardRunner:
         status=r.get("status"),
         draw=_to_int(r.get("barrierDrawNumber")),
         handicap_weight=_to_int(r.get("handicapWeight")),
+        current_weight=_to_int(r.get("currentWeight")),
         current_rating=_to_int(r.get("currentRating")),
         intl_rating=_to_int(r.get("internationalRating")),
         gear=r.get("gearInfo") or None,

@@ -56,3 +56,14 @@ def test_card_to_spine_keeps_declared_runners() -> None:
         1 for r in card.races for rr in r.runners if (rr.status or "").lower() == "declared"
     )
     assert spine.height == declared
+
+
+def test_card_to_spine_carries_body_weight() -> None:
+    # currentWeight (body weight, lb) is published pre-race and feeds the weight_dynamics
+    # group as declared_weight; dropping it would median-impute the whole group on race day.
+    card = parse_card(_meeting("graphql_card_ST_2026_06_21.json"), date(2026, 6, 21), "ST")
+    spine = card_to_spine(card)
+    assert "declared_weight" in spine.columns
+    weights = [int(w) for w in spine["declared_weight"].drop_nulls().to_list()]
+    assert weights
+    assert all(800 < w < 1500 for w in weights)  # plausible body-weight range (lb)

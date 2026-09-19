@@ -294,18 +294,27 @@ def run_backtest(
         seed=seed,
         make_plot=make_plot,
         cfg=cfg,
+        tag="residual" if include_residual else None,
     )
-    _persist_result_json(cfg, result, wf)
+    _persist_result_json(cfg, result, wf, tag="residual" if include_residual else None)
     return result
 
 
-def _persist_result_json(cfg: AppConfig, result: BacktestResult, wf: WalkForwardOOS) -> None:
-    """Write the result (+ calibration curve) to processed/backtest/result.json for the API."""
+def _artifact_name(stem: str, tag: str | None, ext: str) -> str:
+    """``result.json`` for the baseline design, ``result_residual.json`` for a tagged variant,
+    so an ablation run never overwrites the baseline snapshot the API/dashboard serve."""
+    return f"{stem}_{tag}{ext}" if tag else f"{stem}{ext}"
+
+
+def _persist_result_json(
+    cfg: AppConfig, result: BacktestResult, wf: WalkForwardOOS, *, tag: str | None = None
+) -> None:
+    """Write the result (+ calibration curve) to processed/backtest/result[_tag].json."""
     from hkjc.backtest.serialize import calibration_to_list, result_to_dict, write_json
 
     bins = metrics.calibration_bins(wf.win_prob, wf.arrays.y[wf.oos], n_bins=12)
     obj = result_to_dict(result, calibration_to_list(bins))
-    write_json(cfg.paths.processed_dir / "backtest" / "result.json", obj)
+    write_json(cfg.paths.processed_dir / "backtest" / _artifact_name("result", tag, ".json"), obj)
 
 
 def _evaluate(
@@ -323,6 +332,7 @@ def _evaluate(
     seed: int,
     make_plot: bool,
     cfg: AppConfig,
+    tag: str | None = None,
 ) -> BacktestResult:
     o_y = a.y[oos]
     o_placed = a.placed[oos]
@@ -374,7 +384,7 @@ def _evaluate(
     beta = np.abs(model.coefficients)
     canary_ratio = float(beta[a.canary_idx] / beta.mean()) if beta.mean() > 0 else 0.0
 
-    png = _calibration_plot(wp, o_y, cfg) if make_plot else None
+    png = _calibration_plot(wp, o_y, cfg, tag=tag) if make_plot else None
     return BacktestResult(
         feature_version=cfg.features.feature_version,
         n_oos_races=ong,
@@ -399,11 +409,13 @@ def _record(
     bucket[2].append(profit / stake if stake > 0 else 0.0)
 
 
-def _calibration_plot(wp: FloatArray, won: FloatArray, cfg: AppConfig) -> str:
+def _calibration_plot(
+    wp: FloatArray, won: FloatArray, cfg: AppConfig, *, tag: str | None = None
+) -> str:
     bins = metrics.calibration_bins(wp, won, n_bins=12)
     out_dir = cfg.paths.processed_dir / "backtest"
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "calibration_win.png"
+    path = out_dir / _artifact_name("calibration_win", tag, ".png")
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.plot([0, 1], [0, 1], "--", color="grey", label="perfect")
     ax.plot(bins.pred_mean, bins.obs_rate, "o-", color="#1f77b4", label="model")

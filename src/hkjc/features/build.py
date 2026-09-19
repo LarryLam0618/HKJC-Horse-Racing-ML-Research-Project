@@ -490,16 +490,35 @@ def _pace_metrics(cfg: AppConfig) -> pl.DataFrame:
         run = run.with_columns(pl.lit(None, dtype=pl.Int64).alias("distance_m"))
 
     # Early-pace pressure is a *race* property: the leader's first-section time, z-scored
-    # within comparable races (same distance and same number of timed sections).
-    lead = pl.col("sec1").min().over(race_keys)
-    run = run.with_columns(_lead_sec1=lead)
-    norm = ["distance_m", "nsec"]
-    run = run.with_columns(
-        pace_press=-(
-            (pl.col("_lead_sec1") - pl.col("_lead_sec1").mean().over(norm))
-            / pl.col("_lead_sec1").std().over(norm)
+    # within comparable races (same distance and same number of timed sections). The z-score
+    # is **as-of**: mean/std expand over the races run up to and including this one (sorted by
+    # date, race number), so a race's value is fixed once run and never shifts when later
+    # seasons are scraped. With fewer than two comparable races, or a degenerate spread, the
+    # pressure is unknown and set to the neutral 0 (so pace_close = late_rel and the flags
+    # simply cannot fire) instead of nulling the whole group for that race.
+    race_lvl = (
+        run.group_by(race_keys)
+        .agg(
+            _lead_sec1=pl.col("sec1").min(),
+            distance_m=pl.col("distance_m").first(),
+            nsec=pl.col("nsec").max(),
         )
+        .sort(["race_date", "race_no"])
     )
+    norm = ["distance_m", "nsec"]
+    x = pl.col("_lead_sec1")
+    n = x.is_not_null().cast(pl.Int64).cum_sum().over(norm)
+    s1 = x.fill_null(0.0).cum_sum().over(norm)
+    s2 = (x.fill_null(0.0) ** 2).cum_sum().over(norm)
+    mean = s1 / n
+    var = (s2 / n - mean**2) * n / (n - 1)  # sample variance of the expanding window
+    std = var.clip(lower_bound=0.0).sqrt()
+    race_lvl = race_lvl.with_columns(_n=n, _mean=mean, _std=std).with_columns(
+        pace_press=pl.when((pl.col("_n") >= 2) & (pl.col("_std") > 0) & x.is_not_null())
+        .then(-(x - pl.col("_mean")) / pl.col("_std"))
+        .otherwise(0.0)
+    )
+    run = run.join(race_lvl.select(*race_keys, "pace_press"), on=race_keys, how="left")
     run = run.with_columns(late_rel=pl.col("last400").median().over(race_keys) - pl.col("last400"))
     run = run.with_columns(
         pace_close=pl.col("late_rel") * (1.0 + pl.col("pace_press").clip(0.0, 2.5)),
@@ -577,16 +596,22 @@ def _add_weight_dynamics(runs: pl.DataFrame) -> pl.DataFrame:
 
 
 def _class_ord(race_class: pl.Expr) -> pl.Expr:
-    """Class token -> ordinal (lower = better company): Group 0.5, Class N -> N, Griffin 4.5."""
+    """Class token -> ordinal (lower = better company): Group 0.5, Class N -> N, Griffin 4.5.
+
+    Anything else (null -- e.g. the M7 card carries no race class -- or an age/condition race
+    such as "4 Year Olds") is **unknown** and stays null, so ``is_drop`` cannot fire against a
+    fabricated class. Inventing a middle class here would flag every ex-Class-1/2 runner on a
+    card as a drop and never flag a real one.
+    """
     numbered = race_class.str.extract(r"^Class\s+(\d)", 1).cast(pl.Float64)
     return (
         pl.when(numbered.is_not_null())
         .then(numbered)
-        .when(race_class.str.contains("Group"))
+        .when(race_class.str.contains("(?i)group"))
         .then(pl.lit(0.5))
-        .when(race_class.str.contains("Griffin"))
+        .when(race_class.str.contains("(?i)griffin"))
         .then(pl.lit(4.5))
-        .otherwise(pl.lit(3.0))
+        .otherwise(pl.lit(None, dtype=pl.Float64))
     )
 
 
