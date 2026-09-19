@@ -4,12 +4,57 @@ A **local, single-user research platform** that predicts HKJC **WIN + PLACE** pr
 for Sha Tin (`ST`) and Happy Valley (`HV`) races, detects value against the live
 pari-mutuel odds, sizes stakes with Kelly variants, and **backtests honestly**.
 
-> It is a methodology / research sandbox first, with eventual real-money use — and it
-> **recommends only; it never places bets.**
+> A methodology / research sandbox for **market-efficiency and probabilistic-modelling**
+> questions on pari-mutuel data. It **recommends only; it never places bets** (there is no
+> bet/submit path anywhere in the codebase), and it is not financial advice.
 
-See [`PLAN.md`](PLAN.md) for the authoritative build plan (critique, phased roadmap,
-data scope, schema, scraper strategy) and [`CLAUDE.md`](CLAUDE.md) for the working
-conventions and current state of this repo.
+## About this fork
+
+This is a fork of **[stevw-repo/HKJC-Horse-Racing-ML-Research-Project](https://github.com/stevw-repo/HKJC-Horse-Racing-ML-Research-Project)**
+by Steven Wang (MIT). The platform itself — the M0–M7 build below: scraper + data lake,
+as-of feature store, model zoo, honest walk-forward backtest, risk layer, dashboards and
+live ops — is upstream's work and is kept intact. Everything from [Status](#status) down is
+the upstream README.
+
+### What this fork adds
+
+- **A 13-factor "residual" feature group, wired into the pipeline** (`src/hkjc/features/`,
+  `config/features.yaml`, +108 lines of tests in `tests/test_features_asof.py`). A standalone
+  study (`reports/w456.py`: 13 handicapping factors in one conditional logit with the market
+  as a control) was promoted into a first-class, ablatable group in three sub-groups:
+  - `pace_sectional` — early-pace pressure, late-section relative speed, "closed into a hot
+    pace", led-and-held — from the per-200m sectional archive, **lagged one run and rolled over
+    the horse's last 4 runs** (a sectional describes the run it belongs to, so it is only legal
+    for later races).
+  - `weight_dynamics` — body-weight change vs last run / vs career average, "heavier and
+    fresh" (>8 lb and >45 days off), sharp drop.
+  - `class_deploy` — class-drop flag × the trainer's as-of strike rate *on their earlier
+    class-drop runners only*, keyed by canonical connection id.
+
+  Threaded through `build_design` / `load_model_data` / `train_production_model --residual` /
+  `hkjc ablate --group residual|nlp` so race-day rebuilds a matching design and the leakage
+  canary rides through the augmented fit. **Result:** betas reproduce the study (`late_rel3`
+  +0.152, t = 3.5), canary stays clean (0.050 → 0.054), and on 14,434 OOS races log-loss
+  2.2485 → 2.2460, model-only WIN ROI −16.30% → −16.14%. A real but small gain — the
+  honest verdict is unchanged: **no edge past the takeout.** Full write-up in
+  [`CLAUDE.md`](CLAUDE.md#13-factor-residual-group-post-m7----wired-into-the-pipeline).
+- **Kelly test hardening** (`tests/test_risk_kelly.py`): the scipy reference optimiser used to
+  sanity-check the closed-form simultaneous Kelly could stall at 0 when the optimum sits near
+  the `sum(f) = 1` boundary (a Hypothesis-found case where the closed form was right), failing
+  CI. It now uses a finite penalty instead of `-inf`, an extra start seeded near the candidate,
+  and accepts feasible non-converged iterates.
+- **macOS race-day automation** (`scripts/`): a `launchd` plist + installer that runs the
+  live-odds logger over a meeting window (with `caffeinate` so idle sleep can't stall polls),
+  plus `todays_meeting.py`. Upstream shipped only the Windows Task Scheduler script.
+- **Research scripts** (`research/`, `reports/`): the exploration behind the residual group —
+  WIN / PLACE / quinella backtests (Harville, EV-ratio, expanding calibration), LightGBM
+  ablations and regularisation sweeps, calibration checks, data-quality diagnostics. Kept for
+  provenance outside the lint/type/test gate; see [`research/README.md`](research/README.md).
+- **Repo hygiene for publishing**: research dirs excluded from ruff, secrets moved to env vars,
+  gitignore for dated outputs, this README section.
+
+See [`PLAN.md`](PLAN.md) for the build plan (critique, phased roadmap, data scope, schema,
+scraper strategy) and [`CLAUDE.md`](CLAUDE.md) for working conventions and current state.
 
 ## Status
 
@@ -109,8 +154,8 @@ market yet.** A clean finding is that models trained on the *grouped within-race
 (logit, the NNs) are much better calibrated than the pointwise GBMs, which is what the
 calibration layer (temperature/isotonic/Platt) is for.
 
-> Heavy jobs: run them via the venv directly (`.venv/Scripts/hkjc.exe`) — `uv run` re-syncs
-> the env on each call and can deadlock on the editable-`hkjc.exe` lock against a running job.
+> Heavy jobs: run them via the venv directly (`.venv/bin/hkjc`, or `.venv/Scripts/hkjc.exe`
+> on Windows) — `uv run` re-syncs the env on each call and can contend with a running job.
 
 ## NLP track (M4)
 
@@ -217,5 +262,13 @@ src/hkjc/
 ui/                # React + Vite + TS dashboards (M6; node_modules/dist gitignored)
 tests/             # pytest suite
 fixtures/          # checked-in HTML/JSON for offline parser tests
+research/          # exploratory one-off scripts (outside the quality gate; see research/README.md)
+reports/           # standalone studies (e.g. the 13-factor w456.py) + their outputs
 data/              # gitignored data lake: raw/ processed/ cache/ live_odds/ mlruns/
 ```
+
+## Responsible use
+
+This repository exists to study how efficient a pari-mutuel market is and how to evaluate
+predictive models without fooling yourself. It never places bets, holds no credentials, and
+its own results show no exploitable edge. Nothing here is betting or financial advice.

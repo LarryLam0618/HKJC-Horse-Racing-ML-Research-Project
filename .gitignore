@@ -240,3 +240,19 @@ ui/dist/
 # Claude preview launcher (machine-specific absolute paths; local tooling only).
 .claude/launch.json
 
+
+# --- macOS ---
+.DS_Store
+
+# --- Root-level scraped / derived data (regenerable; keep the repo lean).
+# reports/*.csv (small analysis outputs) stay tracked because this only anchors root.
+/*.csv
+/*.parquet
+/*.duckdb
+
+# Ad-hoc experiment output + run logs (M7 odds logger writes here).
+/logs/
+/output/
+
+# Dated one-off outputs from research/reports scripts.
+reports/*_20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]_*.csv
