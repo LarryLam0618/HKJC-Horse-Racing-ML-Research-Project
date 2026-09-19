@@ -32,25 +32,33 @@ def race(draw: st.DrawFn, max_n: int = 8) -> tuple[np.ndarray, np.ndarray]:
     return p, b
 
 
-def _scipy_optimum(p: np.ndarray, b: np.ndarray) -> float:
-    """Max E[log wealth] found by a generic concave optimiser (the reference value)."""
+def _scipy_optimum(p: np.ndarray, b: np.ndarray, *starts: np.ndarray) -> float:
+    """Max E[log wealth] found by a generic concave optimiser (the reference value).
+
+    SLSQP is started from a few flat stake levels plus any extra ``starts`` (e.g. a scaled
+    copy of the candidate solution): when the optimum sits near the ``sum(f) = 1`` boundary
+    the flat starts alone can stall, and the reference must not silently fall back to 0."""
     n = p.size
 
     def neg(f: np.ndarray) -> float:
-        return -kelly.expected_log_wealth(f, p, b)
+        val = kelly.expected_log_wealth(f, p, b)
+        return 1e6 if not np.isfinite(val) else -val  # finite penalty: SLSQP can't take -inf
 
     cons = [{"type": "ineq", "fun": lambda f: 1.0 - float(f.sum()) - 1e-9}]
     bounds = [(0.0, 1.0)] * n
     best = 0.0  # betting nothing is always feasible -> E[log 1] = 0
-    for level in (0.0, 0.02, 0.08):
-        x0 = np.full(n, level)
+    x0s = [np.full(n, level) for level in (0.0, 0.02, 0.08)] + [np.asarray(s) for s in starts]
+    for x0 in x0s:
         if x0.sum() >= 1.0:
             continue
         res = minimize(
             neg, x0, method="SLSQP", bounds=bounds, constraints=cons, options={"ftol": 1e-12}
         )
-        if res.success:
-            best = max(best, -float(res.fun))
+        # Accept any feasible iterate, converged or not: the reference is a lower bound on
+        # the true optimum, and a stalled-but-feasible point is still a valid lower bound.
+        val = kelly.expected_log_wealth(res.x, p, b)
+        if np.isfinite(val):
+            best = max(best, val)
     return best
 
 
@@ -97,7 +105,8 @@ def test_simultaneous_matches_scipy_optimum(data: tuple[np.ndarray, np.ndarray])
     p, b = data
     f = kelly.simultaneous_kelly_win(p, b)
     ours = kelly.expected_log_wealth(f, p, b)
-    ref = _scipy_optimum(p, b)
+    # Seed the optimiser near (not at) the candidate so it can only *improve* on it.
+    ref = _scipy_optimum(p, b, 0.9 * f)
     assert ours >= ref - 1e-6  # the closed form is at least as good as the numeric optimum
     assert ours <= ref + 1e-3  # ... and not implausibly better (sanity)
 
