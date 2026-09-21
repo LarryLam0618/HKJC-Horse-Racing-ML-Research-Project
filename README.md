@@ -47,6 +47,12 @@ the upstream README.
   the improvement. That correction, and the train/serve-skew fixes on the race-day path
   (null class read as "Class 3"; card body weight fetched but dropped), are in the follow-up
   commit and are now pinned by tests.
+- **Known limitation (race day):** the HKJC card query carries no race class, so the
+  `class_deploy` pair (`is_drop`, `drop_x_trsr`) is 0 for every runner on race day even
+  though ~12% of historical runners are class drops — a documented, mild train/serve skew
+  (nothing is fabricated; a null class used to be read as "Class 3", now fixed). Pace, weight
+  and trial features all compute live (verified end-to-end on the fixture card). The fix is
+  to capture the upcoming race's class from the forward race-card page.
 - **Kelly test hardening** (`tests/test_risk_kelly.py`): the scipy reference optimiser used to
   sanity-check the closed-form simultaneous Kelly could stall at 0 when the optimum sits near
   the `sum(f) = 1` boundary (a Hypothesis-found case where the closed form was right), failing

@@ -487,6 +487,16 @@ three config groups:
   `declared_weight` so `weight_dynamics` computes live; `hkjc backtest --residual` persists to
   `result_residual.json` / `calibration_win_residual.png` so it never overwrites the baseline.
 
+  **Known limitation -- `class_deploy` is inert on race day.** The whitelisted card query
+  carries no race class, so `race_class` is null on the forward spine and `is_drop` /
+  `drop_x_trsr` are **0 for every card runner** (verified on the 2026-06-21 ST fixture: 146
+  runners, both columns all-zero), while ~12% of historical runners are class drops. Nothing is
+  fabricated (a null class used to read as "Class 3" -- fixed), but a `--residual` production
+  model never sees a drop live and under-rates genuine class-droppers on the day: a mild,
+  documented train/serve skew. Fix path: capture the upcoming race's class from the forward
+  race-card page (the M1 forward-card capture) and carry it into the spine like
+  `declared_weight`; until then, treat `class_deploy` as a backtest-only group.
+
 `feature_version` -> **v3** (now **v4** with the trial group; rebuild required). The group is kept out of `BASELINE_FEATURES`;
 `numeric_design_features(include_nlp, include_residual)` -> `build_design` -> `load_model_data`
 carry the toggle, `train_production_model(--residual)` records it on the artifact so race-day
