@@ -677,21 +677,27 @@ def _trial_runs(cfg: AppConfig) -> pl.DataFrame:
     return (
         trials.drop_nulls(["horse_id", "trial_date"])
         .with_columns(
-            _n=pl.len().over(bkey),
+            # Rank / margin are among *timed* runners only (~15% of batches carry an untimed
+            # runner), so the slowest timed horse always lands at rank_rel 1.0.
+            _n=pl.col("time_s").is_not_null().sum().over(bkey),
             _rank=pl.col("time_s").rank("min").over(bkey),
             _best=pl.col("time_s").min().over(bkey),
         )
         .with_columns(
             bt_margin=(pl.col("time_s") - pl.col("_best")).clip(lower_bound=0.0),
-            bt_rank=pl.when(pl.col("_n") > 1)
+            bt_rank=pl.when(pl.col("_rank").is_null())
+            .then(None)
+            .when(pl.col("_n") > 1)
             .then((pl.col("_rank") - 1) / (pl.col("_n") - 1))
             .otherwise(0.0),
             bt_failed=pl.col("result")
             .fill_null("")
             .str.contains("(?i)fail|required")
             .cast(pl.Float64),
+            # An untimed run cannot be a timed win: null rank -> 0, never null.
             bt_easy=(
-                (pl.col("_rank") == 1) & pl.col("comment").fill_null("").str.contains(_TRIAL_EASY)
+                (pl.col("_rank") == 1).fill_null(value=False)
+                & pl.col("comment").fill_null("").str.contains(_TRIAL_EASY)
             ).cast(pl.Float64),
         )
         .select("horse_id", "trial_date", "bt_margin", "bt_rank", "bt_failed", "bt_easy")

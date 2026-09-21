@@ -86,18 +86,21 @@ tr = (
         )
     )
     .with_columns(
-        _n=pl.len().over("bkey"),
+        _n=pl.col("time_s").is_not_null().sum().over("bkey"),  # timed runners only
         _rank=pl.col("time_s").rank("min").over("bkey"),
         _best=pl.col("time_s").min().over("bkey"),
     )
     .with_columns(
         margin=(pl.col("time_s") - pl.col("_best")).clip(lower_bound=0.0),
-        rank_rel=pl.when(pl.col("_n") > 1)
+        rank_rel=pl.when(pl.col("_rank").is_null())
+        .then(None)
+        .when(pl.col("_n") > 1)
         .then((pl.col("_rank") - 1) / (pl.col("_n") - 1))
         .otherwise(0.0),
         failed=pl.col("result").fill_null("").str.contains("(?i)fail|required").cast(pl.Float64),
         easy=(
-            (pl.col("_rank") == 1) & pl.col("comment").fill_null("").str.contains(EASY)
+            (pl.col("_rank") == 1).fill_null(value=False)
+            & pl.col("comment").fill_null("").str.contains(EASY)
         ).cast(pl.Float64),
     )
     .select("horse_id", "trial_date", "margin", "rank_rel", "failed", "easy")

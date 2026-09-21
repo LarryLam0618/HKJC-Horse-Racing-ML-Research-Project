@@ -526,9 +526,9 @@ the baseline's `days_since_trial` / `had_recent_trial` now cover 16 seasons inst
 **baseline itself moved**: log-loss 2.2485 -> 2.2465 (feature_version v3 -> **v4**).
 
 **Study** (`reports/trial_signal.py`, market + log-layoff controls, seasons 2012-2026):
-`bt_n_between` +0.073 (**t=+3.8**), `bt_easy_win` -0.031 (**t=-2.6**, the market over-backs a
-flashy trial), `bt_rank_last` -0.026 (t=-1.6), `bt_first_up_trial` +0.024 (t=+1.4), the rest
-|t|<1.1. Raw effects are large (Failed trial since last race: win 4.2% vs 8.2%; easy trial win:
+`bt_n_between` +0.073 (**t=+3.8**), `bt_easy_win` -0.030 (**t=-2.6**, the market over-backs a
+flashy trial), `bt_first_up_trial` +0.024 (t=+1.4), `bt_rank_last` -0.021 (t=-1.3), the rest
+|t|<1.3. Raw effects are large (Failed trial since last race: win 4.2% vs 8.2%; easy trial win:
 12.5% vs 8.1%) but mostly priced. Walk-forward EV>=5%: 423 bets, ROI -3.0% [-30%, +29%].
 
 **Wired in** (`_trial_runs` + `_add_trial_signal` in `features/build.py`; `TRIAL_FEATURES` in
@@ -536,14 +536,16 @@ flashy trial), `bt_rank_last` -0.026 (t=-1.6), `bt_first_up_trial` +0.024 (t=+1.
 `join_asof(strategy="backward", allow_exact_matches=False)` (a race-day trial row is not prior
 form -- a test pins this) -> `bt_margin_last` / `bt_rank_last` / `bt_easy_win`; every trial
 between the previous race and this one (<=365d) -> `bt_n_between` / `bt_failed_between`;
-`bt_first_up_trial` = >=60-day break with a trial in it. `include_trials` is threaded like the
+`bt_first_up_trial` = >=60-day break with a trial in it. Batch rank / margin are over **timed**
+runners only (~15% of batches carry an untimed one) and an untimed run can never be an "easy
+win" (0, not null) -- both pinned by tests. `include_trials` is threaded like the
 other groups (`numeric_design_features` -> `build_design` -> `load_model_data`; `--trials` on
 `backtest` / `train-production`; `hkjc ablate --group trials`; recorded on the production
 artifact so race-day matches). Tagged artifacts: `result_trials.json`.
 
-**Ablation (logit, 14,434 OOS races, v4):** log-loss 2.2465 -> **2.2377 (-0.0089)**, top-1
-0.2382 -> 0.2394, model-only WIN ROI -16.99% -> **-17.98%**, market-blend WIN ROI -32.92% ->
-**-30.67%**. Canary 0.0515 (clean). The largest log-loss gain of any group (NLP -0.0012,
+**Ablation (logit, 14,434 OOS races, v4):** log-loss 2.2465 -> **2.2378 (-0.0087)**, top-1
+0.2382 -> 0.2396, model-only WIN ROI -16.99% -> **-17.95%**, market-blend WIN ROI -32.92% ->
+**-31.25%**. Canary 0.0515 (clean). The largest log-loss gain of any group (NLP -0.0012,
 residual -0.0004) -- the trial archive is real information the baseline recency pair did not
 capture -- and still **no edge past the takeout** (PLAN §1F holds a fourth time). For reference
 the residual group re-measured against the v4 baseline: log-loss -0.0004, model-only ROI

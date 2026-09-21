@@ -72,9 +72,9 @@ the upstream README.
   between races, **t = 3.8**) and `bt_easy_win` (won a trial "easily", **t = −2.6** — the
   market over-backs it). Wired in as an ablatable 6-column group (`src/hkjc/features/build.py::
   _add_trial_signal`, strictly prior via `join_asof(allow_exact_matches=False)`, tests pin
-  the as-of rules). **Ablation on 14,434 OOS races:** log-loss 2.2465 → **2.2377 (−0.0089)**,
-  ~7× the NLP group's gain and 20× the residual group's; top-1 +0.0012; market-blend WIN ROI
-  −32.9% → −30.7%; canary clean (0.051). Yet model-only WIN ROI −17.0% → −18.0%: better
+  the as-of rules). **Ablation on 14,434 OOS races:** log-loss 2.2465 → **2.2378 (−0.0087)**,
+  ~7× the NLP group's gain and 20× the residual group's; top-1 +0.0015; market-blend WIN ROI
+  −32.9% → −31.3%; canary clean (0.051). Yet model-only WIN ROI −17.0% → −18.0%: better
   probabilities, still **no edge past the takeout**. The backfill also moved the *baseline*
   (its `had_recent_trial` went from one season to sixteen): 2.2485 → 2.2465.
 - **Research scripts** (`research/`, `reports/`): the exploration behind the residual group —

@@ -323,3 +323,24 @@ def test_trial_signal_without_archive_is_null(monkeypatch: pytest.MonkeyPatch) -
     )
     out = _add_trial_signal(runs, cfg=None)  # type: ignore[arg-type]
     assert out["bt_n_between"].to_list() == [None]
+
+
+def test_trial_rank_ignores_untimed_runners(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Batch of 4 where one runner has no time: rank_rel is over the 3 timed runners (slowest
+    # timed = 1.0), the untimed one has null rank / margin and bt_easy 0 (not null).
+    trials = pl.DataFrame(
+        {
+            "horse_id": ["A", "B", "C", "D"],
+            "trial_date": [date(2024, 3, 1)] * 4,
+            "location": ["SHA TIN ALL WEATHER TRACK"] * 4,
+            "batch": [1, 1, 1, 1],
+            "time_s": [70.0, 70.5, 71.0, None],
+            "result": [None, None, None, None],
+            "comment": ["Won easily.", "", "", "Eased down; won easily (untimed)."],
+        }
+    )
+    monkeypatch.setattr(build, "_read_raw", lambda _cfg, _t, columns: trials.select(columns))
+    tr = build._trial_runs(cfg=None).sort("horse_id")  # type: ignore[arg-type]
+    assert tr["bt_rank"].to_list() == [0.0, 0.5, 1.0, None]
+    assert tr["bt_margin"].to_list() == [0.0, 0.5, 1.0, None]
+    assert tr["bt_easy"].to_list() == [1.0, 0.0, 0.0, 0.0]
